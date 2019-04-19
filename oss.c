@@ -21,6 +21,11 @@
 
 int shmid;
 
+struct PCB {
+	int myPID; //your local simulated pid
+	int myResource[20];
+};
+
 int randomNum() {
 	int num = (rand() % (10) + 1);
 	return num;
@@ -40,12 +45,28 @@ void endAll(int error) {
 		kill(-1*getpid(), SIGKILL);	
 }
 
+//checks our boolArray for an open slot to save the process. Returns -1 if none exist
+int checkForOpenSlot(bool boolArray[], int maxKidsAtATime) {
+	int i;
+	for (i = 0; i < maxKidsAtATime; i++) {
+		if (boolArray[i] == false) {
+			return i;
+		}
+	}
+	return -1;
+}
 
 //takes in program name and error string, and runs error message procedure
 void errorMessage(char programName[100], char errorString[100]){
 	char errorFinal[200];
 	sprintf(errorFinal, "%s : Error : %s", programName, errorString);
 	perror(errorFinal);
+	endAll(1);
+}
+
+//called when interupt signal (^C) is called
+void intHandler(int dummy) {
+	printf(" Interupt signal received.\n");
 	endAll(1);
 }
 
@@ -58,7 +79,19 @@ int main(int argc, char *argv[]) {
 	}
 	
 	srand(time(0)); //placed here so we can generate random numbers later on
+	signal(SIGINT, intHandler); //signal processing
 	printf("Welcome to project 5\n");
+	
+	int i, j;
+	int maxKidsAtATime = 1; //for now, this is our test value. This will eventually be up to 18, depending on command line arguments
+	
+	//we need our process control table
+	struct PCB PCT[maxKidsAtATime]; //here we have a table of maxNum blocks
+	//our "bit vector" (or boolean array here) that will tell us which PRBs are free
+	bool boolArray[maxKidsAtATime]; //by default, these are all set to false. This has been tested and verified
+	for (i = 0; i < maxKidsAtATime; i++) {
+		boolArray[i] = false; //just set them all to false - quicker then checking
+	}
 	
 	key_t key = 1094;
 	
@@ -80,7 +113,6 @@ int main(int argc, char *argv[]) {
 	int y = 3;
 	int x = 20;
 	
-	int i, j;
 	for (i = 0; i < y; i++) {
 		for (j = 0; j < x; j++) {
 			if (i == 0) {
@@ -96,7 +128,7 @@ int main(int argc, char *argv[]) {
 			}
 		}
 	}
-	
+	//printf("b\n");
 	//print our resource board
 	for (i = 0; i < y; i++) {
 		for (j = 0; j < x; j++) {
@@ -104,25 +136,46 @@ int main(int argc, char *argv[]) {
 		}
 		printf("\n");
 	}
-	
+	//printf("a\n");
 	//now let's start our loop, or for this variation, one child called
 	int terminate = 0;
 	int makeChild = 1;
 	
 	while (terminate != 1) {
-		if (makeChild == 1) {
-			pid_t pid;
-			pid = fork();
-						
-			if (pid == 0) { //child
-				execl ("user", "user", NULL);
-				errorMessage(programName, "execl function failed. ");
-			} else if (pid > 0) { //parent
-				makeChild = 0; //for now, we only want to create one child, for testing purposes
-				//write to output file the time this process was launched
-				printf("Created child %d at %d:%d\n", pid, sm->clockSecs, sm->clockNano);
-				continue;
-			}	
+		if (makeChild == 1) { //we need to make a child process
+		
+			printf("Lets make a child process\n");
+			int openSlot = checkForOpenSlot(boolArray, maxKidsAtATime);
+			if (openSlot != -1) { //a return value of -1 means all slots are currently filled, and per instructions we are to ignore this process
+				printf("Found empty slot in boolArray[%d]\n", openSlot);
+				pid_t pid;
+				pid = fork();
+				
+				if (pid == 0) { //child //NOTE, FOR TESTING THE TWO LINES BELOW ARE COMMENTED OUT
+					execl ("user", "user", NULL);
+					errorMessage(programName, "execl function failed. ");
+				}
+				else if (pid > 0) { //parent
+					makeChild = 0; //for now, we only want to create one child, for testing purposes
+					printf("Created child %d at %d:%d\n", pid, sm->clockSecs, sm->clockNano);
+					boolArray[openSlot] = true; //claim that spot
+					//processesLaunched++;
+					//processesRunning++;
+					//prepNewChild = false;
+					
+					//let's populate the control block with our data
+					PCT[openSlot].myPID = pid;
+					printf("Lets set child %d to 0 resources for starting out\n", pid); //there is a seg fault right after this!!!!!
+					for (i = 0; i < 20; i++) {
+						PCT[openSlot].myResource[i] = 0; //start out with having 0 of each resource
+					}
+					printf("Child %d is ready to roll\n", pid);
+					continue;
+				}
+				else {
+					errorMessage(programName, "Unexpected return value from fork ");
+				}
+			}
 		}
 		 
 		sm->clockNano += CLOCK_INC; //increment clock
@@ -136,6 +189,18 @@ int main(int argc, char *argv[]) {
 			errorMessage(programName, "Unexpected result from terminating process ");
 		} else if (temp > 0) {
 			printf("Process %d confirmed to have ended at %d:%d\n", temp, sm->clockSecs, sm->clockNano);
+			//deallocate resources and continue
+			for (i = 0; i < sizeof(PCT); i++) {
+				if (PCT[i].myPID == temp) {
+					boolArray[i] = false;
+					PCT[i].myPID = 0; //remove PID value from this slot
+					for (j = 0; j < 20; j++) {
+						PCT[i].myResource[j] = 0; //reset each resource to zero
+					}
+					break; //and for the moment, that's all we should need to deallocate
+				}
+			}
+			//processesRunning--;
 			terminate = 1;
 		}
 	

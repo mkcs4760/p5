@@ -76,6 +76,11 @@ int main(int argc, char *argv[]) {
 		while((endSecs > sm->clockSecs) || ((endSecs == sm->clockSecs) && (endNano > sm->clockNano)));
 		
 		printf("We are done waiting since we could start at %d:%d and it is now %d:%d\n", endSecs, endNano, sm->clockSecs, sm->clockNano);
+		//now we want to request/release a resource. To do this we need a PCT
+		
+		
+		
+		
 		terminate = 1;
 	}
 	
