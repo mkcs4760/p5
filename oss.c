@@ -16,6 +16,9 @@
 #include <sys/shm.h>
 #include "sharedMemory.h"
 
+#define CLOCK_INC 1000
+
+
 int shmid;
 
 int randomNum() {
@@ -102,11 +105,44 @@ int main(int argc, char *argv[]) {
 		printf("\n");
 	}
 	
-	int ctl_return = shmctl(shmid, IPC_RMID, NULL);
-	if (ctl_return == -1) {
-		perror(" Error with shmctl command: Could not remove shared memory ");
-		exit(1);
-	}
+	//now let's start our loop, or for this variation, one child called
+	int terminate = 0;
+	int makeChild = 1;
 	
+	while (terminate != 1) {
+		if (makeChild == 1) {
+			pid_t pid;
+			pid = fork();
+						
+			if (pid == 0) { //child
+				execl ("user", "user", NULL);
+				errorMessage(programName, "execl function failed. ");
+			} else if (pid > 0) { //parent
+				makeChild = 0; //for now, we only want to create one child, for testing purposes
+				//write to output file the time this process was launched
+				printf("Created child %d at %d:%d\n", pid, sm->clockSecs, sm->clockNano);
+				continue;
+			}	
+		}
+		 
+		sm->clockNano += CLOCK_INC; //increment clock
+		if (sm->clockNano >= 1000000000) { //increment the next unit
+			sm->clockSecs += 1;
+			sm->clockNano -= 1000000000;
+		}
+		
+		int temp = waitpid(-1, NULL, WNOHANG); //required to properly end processes and avoid a fork bomb
+		if (temp < 0) {
+			errorMessage(programName, "Unexpected result from terminating process ");
+		} else if (temp > 0) {
+			printf("Process %d confirmed to have ended at %d:%d\n", temp, sm->clockSecs, sm->clockNano);
+			terminate = 1;
+		}
+	
+	}
+
+	printf("Successful end of program\n");
+	
+	endAll(0);
 	return 0;
 }
