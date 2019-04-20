@@ -20,6 +20,7 @@
 
 
 int shmid;
+int msgid;
 
 struct PCB {
 	int myPID; //your local simulated pid
@@ -39,6 +40,9 @@ void endAll(int error) {
 		perror(" Error with shmctl command: Could not remove shared memory ");
 		exit(1);
 	}
+	
+	//close message queue
+	msgctl(msgid, IPC_RMID, NULL);
 	
 	//destroy master process
 	if (error)
@@ -93,12 +97,10 @@ int main(int argc, char *argv[]) {
 		boolArray[i] = false; //just set them all to false - quicker then checking
 	}
 	
-	key_t key = 1094;
-	
+	key_t shKey = 1094;
     shared_memory *sm; //allows us to request shared memory data
-
 	//connect to shared memory
-	if ((shmid = shmget(key, sizeof(shared_memory) + 256, IPC_CREAT | 0666)) == -1) {
+	if ((shmid = shmget(shKey, sizeof(shared_memory) + 256, IPC_CREAT | 0666)) == -1) {
 		errorMessage(programName, "Function shmget failed. ");
     }
 	//attach to shared memory
@@ -106,6 +108,15 @@ int main(int argc, char *argv[]) {
     if (sm == NULL ) {
         errorMessage(programName, "Function shmat failed. ");
     }
+	
+	//set up message queue
+	key_t mqKey = 2461; 
+    //msgget creates a message queue  and returns identifier
+    msgid = msgget(mqKey, 0666 | IPC_CREAT); 
+	if (msgid < 0) {
+		errorMessage(programName, "Error using msgget for message queue ");
+	}
+	
 	
 	sm->clockSecs = 0;
 	sm->clockNano = 0;

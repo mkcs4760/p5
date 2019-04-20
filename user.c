@@ -27,6 +27,11 @@ int randomNum(int max) {
 	return num;
 }
 
+int randomPercent() {
+	int num = rand() % 100 + 1;
+	return num;
+}
+
 int main(int argc, char *argv[]) {
 	//this section of code allows us to print the program name in error messages
 	char programName[100];
@@ -37,11 +42,12 @@ int main(int argc, char *argv[]) {
 
 	printf("Welcome to the child\n");
 	
+	//set up shared memory
 	int shmid;
+	key_t smKey = 1094;
     shared_memory *sm; //allows us to request shared memory data
-	
 	//connect to shared memory
-	if ((shmid = shmget(1094, sizeof(shared_memory) + 256, IPC_CREAT | 0666)) == -1) {
+	if ((shmid = shmget(smKey, sizeof(shared_memory) + 256, IPC_CREAT | 0666)) == -1) {
         errorMessage(programName, "Function shmget failed. ");
     }
 	//attach to shared memory
@@ -51,6 +57,17 @@ int main(int argc, char *argv[]) {
 	}
 	
 	printf("Child %d successfully connected to shared memory at %d:%d\n", getpid(), sm->clockSecs, sm->clockNano);
+	
+	//set up message queue
+	key_t mqKey = 2461; 
+    int msgid; 
+    //msgget creates a message queue  and returns identifier
+    msgid = msgget(mqKey, 0666 | IPC_CREAT); 
+	if (msgid < 0) {
+		errorMessage(programName, "Error using msgget for message queue ");
+	}
+	
+	
 	
 	int startSecs, startNano, durationSecs, durationNano, endSecs, endNano; 
 	int terminate = 0;
@@ -73,12 +90,19 @@ int main(int argc, char *argv[]) {
 		}
 		printf("We will change our resource needs at %d:%d\n", endSecs, endNano); //we will try to launch our next child at endSecs:endNano
 		
-		while((endSecs > sm->clockSecs) || ((endSecs == sm->clockSecs) && (endNano > sm->clockNano)));
+		while((endSecs > sm->clockSecs) || ((endSecs == sm->clockSecs) && (endNano > sm->clockNano))); //this dead wait will not work in final project
 		
 		printf("We are done waiting since we could start at %d:%d and it is now %d:%d\n", endSecs, endNano, sm->clockSecs, sm->clockNano);
 		//now we want to request/release a resource. To do this we need a PCT
 		
+		int percent = randomPercent();
 		
+		if (percent < 46) {
+			//release a resource
+		} 
+		if (percent > 45) {
+			//request a resource
+		}
 		
 		
 		terminate = 1;
