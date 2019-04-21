@@ -15,12 +15,13 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include "sharedMemory.h"
+#include "messageQueue.h"
 
 #define CLOCK_INC 1000
 
 
 int shmid;
-int msgid;
+//int msqid;
 
 struct PCB {
 	int myPID; //your local simulated pid
@@ -34,15 +35,17 @@ int randomNum() {
 
 //called whenever we terminate program
 void endAll(int error) {
-    //destroy shared memory
+    	
+	//close message queue
+	//msgctl(msqid, IPC_RMID, NULL);
+	
+	//destroy shared memory
 	int ctl_return = shmctl(shmid, IPC_RMID, NULL);
 	if (ctl_return == -1) {
 		perror(" Error with shmctl command: Could not remove shared memory ");
 		exit(1);
 	}
-	
-	//close message queue
-	msgctl(msgid, IPC_RMID, NULL);
+
 	
 	//destroy master process
 	if (error)
@@ -85,6 +88,8 @@ int main(int argc, char *argv[]) {
 	srand(time(0)); //placed here so we can generate random numbers later on
 	signal(SIGINT, intHandler); //signal processing
 	printf("Welcome to project 5\n");
+	printf("For the record, parent pid = %d\n", getpid());
+	int parentPID = getpid();
 	
 	int i, j;
 	int maxKidsAtATime = 1; //for now, this is our test value. This will eventually be up to 18, depending on command line arguments
@@ -109,13 +114,27 @@ int main(int argc, char *argv[]) {
         errorMessage(programName, "Function shmat failed. ");
     }
 	
-	//set up message queue
+	/*//set up message queue
 	key_t mqKey = 2461; 
     //msgget creates a message queue  and returns identifier
-    msgid = msgget(mqKey, 0666 | IPC_CREAT); 
-	if (msgid < 0) {
+    msqid = msgget(mqKey, 0666 | IPC_CREAT); 
+	if (msqid < 0) {
 		errorMessage(programName, "Error using msgget for message queue ");
+	}*/
+	int msqid;
+	key_t mqKey; 
+    // ftok to generate unique key 
+    mqKey = 2931; //ftok("progfile", 65); 
+	printf("We received a key value of %d\n", mqKey);
+    // msgget creates a message queue and returns identifier 
+    msqid = msgget(mqKey, 0666 | IPC_CREAT);  //create the message queue
+	if (msqid < 0) {
+		printf("Error, msqid equals %d\n", msqid);
 	}
+	else {
+		printf("PARENT: We received a msqid value of %d\n", msqid);
+	}
+	
 	
 	
 	sm->clockSecs = 0;
@@ -163,7 +182,9 @@ int main(int argc, char *argv[]) {
 				pid = fork();
 				
 				if (pid == 0) { //child //NOTE, FOR TESTING THE TWO LINES BELOW ARE COMMENTED OUT
-					execl ("user", "user", NULL);
+					char buffer[11];
+					sprintf(buffer, "%d", parentPID); //here we send the parent pid to the child
+					execl ("user", "user", buffer, NULL);
 					errorMessage(programName, "execl function failed. ");
 				}
 				else if (pid > 0) { //parent
@@ -195,6 +216,62 @@ int main(int argc, char *argv[]) {
 			sm->clockNano -= 1000000000;
 		}
 		
+		//we check if we've received a message back 
+		/*int receive;
+		receive = msgrcv(msqid, &message, sizeof(message), getpid(), IPC_NOWAIT); 
+		if (receive > 0) {
+			printf("Message received from child to parent.\n");
+			printf("Message reads as follows: %s\n", message.mesg_text);
+			int replyTo = message.return_address;
+			
+			sleep(1);
+			
+			//now we make a response message
+			message.mesg_type = replyTo; //send a message to this specific PID, and no other
+			strncpy(message.mesg_text, "parent to child read you over", 100);
+			message.return_address = getpid(); //tell them who sent it
+			
+			printf("Attempting to send message from parent %d to child %d\n", parentPID, replyTo); //BELOW HERE DOES NOT WORK
+			int send = msgsnd(msqid, &message, sizeof(message), 0);
+			if (send == -1) {
+				errorMessage(programName, "Error sending message via msgsnd command ");
+			}
+			printf("Message sent from parent to child\n");
+		}*/
+		
+		///////////////////
+
+		// msgrcv to receive message 
+		int receive;
+		receive = msgrcv(msqid, &message, sizeof(message), 1, IPC_NOWAIT); //will wait until is receives a message
+		if (receive > 0) {
+			// display the message 
+			printf("Data Received is : %s \n",  
+							message.mesg_text); 
+			printf("PARENT : After receiving from child to parent, we have a msqid value of %d\n", msqid);	//WHY DOES msqid EQUAL ZERO NOW??			
+			//now comes the test
+
+			message.mesg_type = 2; 
+			
+			
+			printf("Write Data for queue 1 : "); 
+			gets(message.mesg_text); 
+			printf("PARENT : Before sending from parent to child, we have a msqid value of %d\n", msqid);
+			// msgsnd to send message 
+			int send = msgsnd(msqid, &message, sizeof(message), 0);
+			if (send == -1) {
+				perror("Error on msgsnd\n");
+			}
+				// display the message 
+			printf("PARENT : After sending from parent to child, we have a msqid value of %d\n", msqid);
+			printf("Data send is : %s \n", message.mesg_text); 	
+			terminate = 1;			
+		}
+		
+		
+		/////////////////////////
+		
+		
 		int temp = waitpid(-1, NULL, WNOHANG); //required to properly end processes and avoid a fork bomb
 		if (temp < 0) {
 			errorMessage(programName, "Unexpected result from terminating process ");
@@ -219,6 +296,8 @@ int main(int argc, char *argv[]) {
 
 	printf("Successful end of program\n");
 	
+	//close message queue
+	msgctl(msqid, IPC_RMID, NULL);
 	endAll(0);
 	return 0;
 }
