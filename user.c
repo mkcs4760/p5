@@ -100,6 +100,16 @@ int main(int argc, char *argv[]) {
 		}
 		printf("\n");
 	}
+	int p;
+	//function to print out sharedMemory2
+	for (p = 0; p < 1; p++) {
+		printf("3Slot #%d, containing PID %d: \n", p, sm2->PCT[i].myPID);
+		int q;
+		for (q = 0; q < 20; q++) {
+			printf("%d ", sm2->PCT[i].myResource[q]);
+		}
+		printf("\n");
+	}
 	
 	
 	int startSecs, startNano, durationSecs, durationNano, endSecs, endNano; 
@@ -135,6 +145,17 @@ int main(int argc, char *argv[]) {
 		
 		printf("CHILD: We are done waiting since we could start at %d:%d and it is now %d:%d\n", endSecs, endNano, sm->clockSecs, sm->clockNano);
 		//now we want to request/release a resource. To do this we need a PCT
+		
+		int p;
+		//function to print out sharedMemory2
+		for (p = 0; p < 1; p++) {
+			printf("4Slot #%d, containing PID %d: \n", p, sm2->PCT[i].myPID);
+			int q;
+			for (q = 0; q < 20; q++) {
+				printf("%d ", sm2->PCT[i].myResource[q]);
+			}
+			printf("\n");
+		}
 		
 		message.mesg_type = getppid(); 
 		strncpy(message.mesg_text, "child to parent", 100);
@@ -200,6 +221,7 @@ int main(int argc, char *argv[]) {
 					}
 					printf("Looks like child %d got what it wanted\n", getpid());
 				}
+				printf("I am not stored in PCT[%d] because %d does not equal %d\n", i, sm2->PCT[i].myPID, getpid());
 				//then randomly pick which resource it wants
 					//if it has already maxed out on that resource, randomly choose another one
 				//pick a random value from 1-n where n is the literaly max it can request before it requested more then could possibly exist.

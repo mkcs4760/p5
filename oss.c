@@ -101,7 +101,7 @@ int main(int argc, char *argv[]) {
 	key_t shKey = 1094;
     shared_memory *sm; //allows us to request shared memory data
 	//connect to shared memory
-	if ((shmid = shmget(shKey, sizeof(shared_memory) + 256, IPC_CREAT | 0666)) == -1) {
+	if ((shmid = shmget(shKey, sizeof(shared_memory), IPC_CREAT | 0666)) == -1) {
 		errorMessage(programName, "Function shmget failed. ");
     }
 	//attach to shared memory
@@ -114,7 +114,7 @@ int main(int argc, char *argv[]) {
 	key_t sh2Key = 1095;
     shared_memory2 *sm2; //allows us to request shared memory data
 	//connect to shared memory
-	if ((shm2id = shmget(sh2Key, sizeof(shared_memory2) + 256, IPC_CREAT | 0666)) == -1) {
+	if ((shm2id = shmget(sh2Key, sizeof(shared_memory2), IPC_CREAT | 0666)) == -1) {
 		errorMessage(programName, "Function shmget failed. ");
     }
 	//attach to shared memory
@@ -122,6 +122,17 @@ int main(int argc, char *argv[]) {
     if (sm2 == NULL ) {
         errorMessage(programName, "Function shmat failed. ");
     }
+	
+	int p;
+	//function to print out sharedMemory2
+	for (p = 0; p < 1; p++) {
+		printf("0Slot #%d, containing PID %d: \n", p, sm2->PCT[i].myPID);
+		int q;
+		for (q = 0; q < 20; q++) {
+			printf("%d ", sm2->PCT[i].myResource[q]);
+		}
+		printf("\n");
+	}
 	
 	int msqid;
 	key_t mqKey; 
@@ -211,7 +222,7 @@ int main(int argc, char *argv[]) {
 					//prepNewChild = false;
 					
 					//let's populate the control block with our data //NOTE: THIS STUFF CAUSED A PROBLEM. IT WAS REMOVED, BUT IT SHOULD BE REPLACED WITH SOMETHING THAT WORKS
-					printf("Changing value %d to %d\n", sm2->PCT[openSlot].myPID, pid);
+					printf("Changing value %d to %d in PCT[%d]\n", sm2->PCT[openSlot].myPID, pid, openSlot);
 					sm2->PCT[openSlot].myPID = pid;
 					printf("Lets set child %d to 0 resources for starting out\n", pid);
 					for (i = 0; i < RESOURCE_COUNT; i++) {
@@ -222,6 +233,17 @@ int main(int argc, char *argv[]) {
 					for (i = 0; i < y; i++) {
 						for (j = 0; j < RESOURCE_COUNT; j++) {
 							printf("%d\t", sm->resource[j][i]);
+						}
+						printf("\n");
+					}
+						int p;
+						
+					//function to print out sharedMemory2
+					for (p = 0; p < 1; p++) {
+						printf("1Slot #%d, containing PID %d: \n", p, sm2->PCT[i].myPID);
+						int q;
+						for (q = 0; q < 20; q++) {
+							printf("%d ", sm2->PCT[i].myResource[q]);
 						}
 						printf("\n");
 					}
@@ -335,6 +357,15 @@ int main(int argc, char *argv[]) {
 		printf("\n");
 	}
 	
+	//function to print out sharedMemory2
+	for (p = 0; p < 1; p++) {
+		printf("2Slot #%d, containing PID %d: \n", p, sm2->PCT[i].myPID);
+		int q;
+		for (q = 0; q < 20; q++) {
+			printf("%d ", sm2->PCT[i].myResource[q]);
+		}
+		printf("\n");
+	}
 	
 	printf("Successful end of program\n");
 	
