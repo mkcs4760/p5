@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
 	//function to set all starting values to 0 and print out all allocated resources
 	for (p = 0; p < maxKidsAtATime; p++) {
 		PCT[p].myPID = 0; 
-		printf("PARENT: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
+		printf("PARENT0: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
 		int q;
 		for (q = 0; q < 20; q++) {
 			PCT[p].myResource[q] = 0;
@@ -137,7 +137,7 @@ int main(int argc, char *argv[]) {
 	
 	//function to print out all allocated resources
 	for (p = 0; p < maxKidsAtATime; p++) {
-		printf("PARENT: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
+		printf("PARENT1: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
 		int q;
 		for (q = 0; q < 20; q++) {
 			printf("%d ", PCT[p].myResource[q]);
@@ -252,7 +252,7 @@ int main(int argc, char *argv[]) {
 					int p;
 					//function to print out all allocated resources
 					for (p = 0; p < maxKidsAtATime; p++) {
-						printf("PARENT: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
+						printf("PARENT2: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
 						int q;
 						for (q = 0; q < 20; q++) {
 							printf("%d ", PCT[p].myResource[q]);
@@ -277,7 +277,8 @@ int main(int argc, char *argv[]) {
 		int receive;
 		receive = msgrcv(msqid, &message, sizeof(message), getpid(), IPC_NOWAIT); //will wait until is receives a message
 		if (receive > 0) {
-			printf("Data Received from child to parent is : %s \n", message.mesg_text); //display the message
+			printf("PARENT: ALERT! A new conversation started by child %d has just arrived!\n", message.return_address);
+			printf("Data Received from child %d to parent is : %s \n", message.return_address, message.mesg_text); //display the message
 			printf("The bool 'receive' that was sent over had a value of %d\n", message.request);
 			if (message.request == true) { //we're requesting a resource
 				printf("Process %d is requesting %d of resource %d\n.", message.return_address, message.resAmount, message.resID);
@@ -308,7 +309,7 @@ int main(int argc, char *argv[]) {
 							
 							//function to print out all allocated resources
 							for (p = 0; p < maxKidsAtATime; p++) {
-								printf("PARENT: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
+								printf("PARENT3: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
 								int q;
 								for (q = 0; q < 20; q++) {
 									printf("%d ", PCT[p].myResource[q]);
@@ -330,7 +331,53 @@ int main(int argc, char *argv[]) {
 			
 				
 			} else { //we're releasing a resource
-				printf("Process %d is releasing %d of resource %d\n.", message.return_address, message.resAmount, message.resID);
+				printf("Process %d is releasing %d of resource %d\n", message.return_address, message.resAmount, message.resID);
+				
+				for (i = 0; i < maxKidsAtATime; i++) {
+					printf("PARENT check 0\n");
+					printf("Let's compare %d and %d\n", PCT[i].myPID, message.return_address);
+					if (PCT[i].myPID == message.return_address) {
+						printf("PARENT check 1\n");
+						//this is the slot we want to deallocate resources to
+						PCT[i].myResource[message.resID] -= message.resAmount; //we just deallocated a resource
+						sm->resource[message.resID][1] += message.resAmount; //just moved resources from allocation in PCT to free in resource table
+						printf("PARENT: Process %d successfully released resources\n", message.return_address);
+							
+						//now let's print out the updated board
+						//print our resource board
+						printf("PARENT: updated printout of our resource board\n");
+						for (i = 0; i < y; i++) {
+							for (j = 0; j < RESOURCE_COUNT; j++) {
+								printf("%d\t", sm->resource[j][i]);
+							}
+							printf("\n");
+						}
+							
+						printf("PARENT check 2\n");	
+						//function to print out all allocated resources
+						for (p = 0; p < maxKidsAtATime; p++) {
+							printf("PARENT4: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
+							int q;
+							for (q = 0; q < 20; q++) {
+								printf("%d ", PCT[p].myResource[q]);
+							}
+							printf("\n");
+						}
+						printf("PARENT check 3\n");
+						printf("PARENT: Sending message back to process %d to let them know we released their resources\n", message.return_address);
+						message.mesg_type = message.return_address;
+						message.return_address = getpid();
+						int send = msgsnd(msqid, &message, sizeof(message), 0); //send message
+						if (send == -1) {
+							perror("Error on msgsnd\n");
+						}
+						printf("Data sent is : %s \n", message.mesg_text); // display the messag
+						printf("PARENT check 4\n");
+					}
+
+				
+				}
+				
 			}
 			
 		
@@ -369,7 +416,7 @@ int main(int argc, char *argv[]) {
 	
 	//function to print out all allocated resources
 	for (p = 0; p < maxKidsAtATime; p++) {
-		printf("PARENT: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
+		printf("PARENT5: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
 		int q;
 		for (q = 0; q < 20; q++) {
 			printf("%d ", PCT[p].myResource[q]);

@@ -70,9 +70,9 @@ int main(int argc, char *argv[]) {
 		errorMessage(programName, "Function shmat failed. ");
 	}
 	
-	int myResources[20];
+	int myResources[RESOURCE_COUNT];
 	int i, j;
-	for (i = 0; i < 20; i++) {
+	for (i = 0; i < RESOURCE_COUNT; i++) {
 		myResources[i] = 0; //start out with no resources
 	}
 	
@@ -100,7 +100,7 @@ int main(int argc, char *argv[]) {
 	//print out resources held by this process, for verification
 	printf("CHILD: Resources held by process %d\n", getpid());
 	int q;
-	for (q = 0; q < 20; q++) {
+	for (q = 0; q < RESOURCE_COUNT; q++) {
 		printf("%d ", myResources[q]);
 	}
 	printf("\n");
@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
 	int startSecs, startNano, durationSecs, durationNano, endSecs, endNano; 
 	int terminate = 0;
 	
-	while (terminate != 1) {
+	while (terminate != 2) {
 		//wait a few seconds
 		//decide to either request or release some resources
 		//decide if we should terminate
@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
 		//print out resources held by this process, for verification
 		printf("CHILD: Resources held by process %d\n", getpid());
 		int q;
-		for (q = 0; q < 20; q++) {
+		for (q = 0; q < RESOURCE_COUNT; q++) {
 			printf("%d ", myResources[q]);
 		}
 		printf("\n");
@@ -143,11 +143,82 @@ int main(int argc, char *argv[]) {
 		message.mesg_type = getppid(); 
 		strncpy(message.mesg_text, "child to parent", 100);
 		int percent = randomPercent();
-		if (percent < 0) { //will be 46, but for now is 0 for EARLY TESTING!!!
+		if (percent < 46) { //will be 46, but for now is 100 for EARLY TESTING!!!
 			//release a resource
 			printf("CHILD: I want to release a resource\n");
 			message.mesg_value = 1; //1 signifies release
-		} else {
+			
+			int numOurResources = 0;
+			//let's decide which one we want to release
+			for (i = 0; i < RESOURCE_COUNT; i++) {
+				if (myResources[i] != 0) {
+					numOurResources++;
+				}
+			} //now that we have the number of resources, we randomly pick one to release
+			if (numOurResources == 0) {
+				printf("CHILD: We have no resources to release. Guess we better request\n");
+				percent = 46; //set it up so we'll end up requesting instead
+			} else {
+				int ourPick = randomNum(1, numOurResources);
+				for (i = 0; i < RESOURCE_COUNT; i++) {
+					if (myResources[i] != 0) {
+						ourPick--;
+						if (ourPick == 0) {
+							//we want to decrease this resource
+							ourPick = i;
+							printf("CHILD: I want to release some of resource %d\n", ourPick);
+						}
+					}
+				}
+				printf("CHILD: I currently have %d of resource #%d, and the total amount of that resource is %d\n", myResources[ourPick], ourPick, sm->resource[ourPick][0]);
+				//printf("test ends here...\n");
+				int giveAway = randomNum(1, myResources[ourPick]);
+				printf("CHILD: I want to give away %d of that resource\n", giveAway);
+				
+				
+				message.mesg_type = getppid();
+				message.request = false; //set to false if we were releasing resources
+				message.resID = ourPick;
+				message.resAmount = giveAway;
+				message.return_address = getpid();
+				printf("CHILD: I release %d of resource %d\n", giveAway, ourPick);
+				int send = msgsnd(msqid, &message, sizeof(message), 0);
+				if (send == -1) {
+					perror("Error on msgsnd\n");
+				}
+				printf("CHILD: Send1 - awaiting response...\n");
+				int receive;
+				receive = msgrcv(msqid, &message, sizeof(message), getpid(), 0); //will wait until is receives a message
+				if (receive < 0) {
+					perror("No message received\n");
+				}
+				//printf("Data Received is: %d \n", message.mesg_test);
+				
+				//unless I'm missing something, there is no situation where we would not release a resource unless the process doesn't really have it
+				//but in that case, there's an unsolveable error already, and we would terminate anyway
+				
+				printf("CHILD: We released our resource1 Yay!\n");
+				//release it on the child end now
+				myResources[ourPick] -= giveAway;
+				printf("CHILD: We are left with %d of resource #%d\n", myResources[ourPick], ourPick);
+				
+					
+				printf("CHILD: updated printout of our resource board\n");
+				for (i = 0; i < y; i++) {
+					for (j = 0; j < RESOURCE_COUNT; j++) {
+						printf("%d\t", sm->resource[j][i]);
+					}
+					printf("\n");
+				}
+
+			
+			}
+			
+			
+			
+			
+		} 
+		if (percent > 45) {
 			//request a resource
 			message.mesg_value = 2; //2 signifies request
 			printf("CHILD: I want to request a resource\n");
@@ -186,14 +257,15 @@ int main(int argc, char *argv[]) {
 							perror("Error on msgsnd\n");
 						}
 						// display the message 
-						printf("Data send is : %s \n", message.mesg_text); 
+						printf("CHILD: Data send is : %s \n", message.mesg_text); 
+						printf("CHILD: Send2 - awaiting response...\n");
 						int receive;
 						receive = msgrcv(msqid, &message, sizeof(message), getpid(), 0); //will wait until is receives a message
 						if (receive < 0) {
 							perror("No message received\n");
 						}
 						// display the message 
-						printf("Data Received is : %s \n", message.mesg_text); 
+						printf("CHILD: Data Received is : %s \n", message.mesg_text); 
 						if (message.mesg_value == 10) { //PLACEHOLDER VALUE FOR EARLY TESTING
 							complete = true;
 							printf("CHILD check 6\n");
@@ -257,22 +329,23 @@ int main(int argc, char *argv[]) {
 			
 			
 		}
-		printf("WARNING! POTENTIAL LEAK FOUND!!\n");
+		printf("CHILD: WARNING! POTENTIAL LEAK FOUND!!\n");
 		message.return_address = getpid();
 		// msgsnd to send message 
 		int send = msgsnd(msqid, &message, sizeof(message), 0);
 		if (send == -1) {
-			perror("Error on msgsnd\n");
+			perror("CHILD: Error on msgsnd\n");
 		}
 		// display the message 
-		printf("Data send is : %s \n", message.mesg_text); 
+		printf("CHILD: Data send is : %s \n", message.mesg_text); 
+		printf("CHILD: Send3 - awaiting response...\n");
 		int receive;
 		receive = msgrcv(msqid, &message, sizeof(message), getpid(), 0); //will wait until is receives a message
 		if (receive < 0) {
-			perror("No message received\n");
+			perror("CHILD: No message received\n");
 		}
 		// display the message 
-		printf("Data Received is : %s \n", message.mesg_text); 
+		printf("CHILD: Data Received is : %s \n", message.mesg_text); 
 		
 		
 		//print out resources held by this process, for verification
@@ -292,7 +365,8 @@ int main(int argc, char *argv[]) {
 			//request a resource
 		}*/
 		
-		terminate = 1;
+		terminate++;
+		printf("CHILD: Terminate has been increased from %d to %d -------------------------------------- \n", terminate - 1, terminate);
 	}
 	
 	printf("CHILD: Ending child %d at %d:%d\n", getpid(), sm->clockSecs, sm->clockNano);
