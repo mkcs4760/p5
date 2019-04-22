@@ -159,7 +159,7 @@ int main(int argc, char *argv[]) {
 				//now we randomly pick the resource that it'll request
 				int res = randomNum(0, 19);
 				printf("We have a request for resource #%d\n", res);
-				printf("I currently have %d of that resource, and the max available is %d\n", myResources[res], sm->resource[res][1]);
+				printf("I currently have %d of that resource, and the max that exist is %d\n", myResources[res], sm->resource[res][0]);
 				if (myResources[res] < sm->resource[res][0]) { //if we have less then all of this resource...
 					printf("CHILD check 4\n");
 					validChoice = true;
@@ -193,7 +193,17 @@ int main(int argc, char *argv[]) {
 						if (message.mesg_value == 10) { //PLACEHOLDER VALUE FOR EARLY TESTING
 							complete = true;
 							printf("CHILD check 6\n");
-							printf("CHILD: We got what we wanted!!\n");
+							printf("CHILD: We got what we wanted!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+							myResources[res] += iWant;
+							
+							printf("CHILD: updated printout of our resource board\n");
+							for (i = 0; i < y; i++) {
+								for (j = 0; j < RESOURCE_COUNT; j++) {
+									printf("%d\t", sm->resource[j][i]);
+								}
+								printf("\n");
+							}
+
 						} //else, we continue to request and request. If we can never get what we want, we will end up deadlocked
 					}
 				}	
@@ -259,6 +269,15 @@ int main(int argc, char *argv[]) {
 		}
 		// display the message 
 		printf("Data Received is : %s \n", message.mesg_text); 
+		
+		
+		//print out resources held by this process, for verification
+		printf("CHILD: Resources held by process %d\n", getpid());
+		for (q = 0; q < 20; q++) {
+			printf("%d ", myResources[q]);
+		}
+		printf("\n");
+		
 		
 		/*int percent = randomPercent();
 		

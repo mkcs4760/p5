@@ -326,6 +326,36 @@ int main(int argc, char *argv[]) {
 			if (randomNum(1, 10) == 1) {
 				message.mesg_value = 10; //accept request
 				printf("PARENT: I choose to accept the request\n");
+				
+				for (i = 0; i < maxKidsAtATime; i++) {
+					if (PCT[i].myPID == message.return_address) {
+						//this is the slot we want to allocate resources to
+						PCT[i].myResource[message.resID] += message.resAmount; //we just allocated a resource
+						printf("Decreasing value %d...\n", sm->resource[message.resID][1]);
+						sm->resource[message.resID][1] -= message.resAmount; //these parameters may possibly be in the wrong order..........
+						printf("PARENT: Process %d got what it wanted!!!!!!!!!!!!!!!\n", PCT[i].myPID);
+						//now let's print out the updated board
+						//print our resource board
+						printf("PARENT: updated printout of our resource board\n");
+						for (i = 0; i < y; i++) {
+							for (j = 0; j < RESOURCE_COUNT; j++) {
+								printf("%d\t", sm->resource[j][i]);
+							}
+							printf("\n");
+						}
+						
+						
+						//function to print out all allocated resources
+						for (p = 0; p < maxKidsAtATime; p++) {
+							printf("PARENT: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
+							int q;
+							for (q = 0; q < 20; q++) {
+								printf("%d ", PCT[p].myResource[q]);
+							}
+							printf("\n");
+						}
+					}
+				}
 			} else {
 				message.mesg_value = 1; //deny request
 				printf("PARENT: I choose to deny the request\n");
@@ -337,7 +367,6 @@ int main(int argc, char *argv[]) {
 			}
 			printf("Data sent is : %s \n", message.mesg_text); // display the message 			
 		}
-
 		
 		//we check to see if any of our processes have ended
 		int temp = waitpid(-1, NULL, WNOHANG);
@@ -349,6 +378,7 @@ int main(int argc, char *argv[]) {
 			for (i = 0; i < maxKidsAtATime; i++) {
 				if (PCT[i].myPID == temp) {
 					boolArray[i] = false;
+					printf("PARENT: Deallocating process %d from PCT\n", PCT[i].myPID);
 					PCT[i].myPID = 0; //remove PID value from this slot
 					for (j = 0; j < 20; j++) {
 						PCT[i].myResource[j] = 0; //reset each resource to zero
