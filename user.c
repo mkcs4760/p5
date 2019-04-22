@@ -10,7 +10,6 @@
 #include <sys/shm.h>
 #include <stdbool.h>
 #include "sharedMemory.h"
-#include "sharedMemory2.h"
 #include "messageQueue.h"
 
 #define MAX_TIME_BETWEEN_RESOURCE_CHANGES_NANO 999999999
@@ -54,7 +53,7 @@ int main(int argc, char *argv[]) {
 	
 	printf("CHILD: Welcome to the child\n");
 	
-	int maxKidsAtATime = 1; //this is only hear for testing. Eventually this will be replaced with a CONSTENT
+	//int maxKidsAtATime = 1; //this is only hear for testing. Eventually this will be replaced with a CONSTENT
 	
 	//set up shared memory
 	int shmid;
@@ -68,16 +67,10 @@ int main(int argc, char *argv[]) {
 		errorMessage(programName, "Function shmat failed. ");
 	}
 	
-	//set up shared memory 2
-	int shm2id;
-	key_t sm2Key = 1094;
-    shared_memory2 *sm2; //allows us to request shared memory data
-	if ((shm2id = shmget(sm2Key, sizeof(shared_memory2), IPC_CREAT | 0666)) == -1) { //connect to shared memory
-        errorMessage(programName, "Function shmget failed. ");
-    }
-	sm2 = (shared_memory2*) shmat(shm2id, 0, 0); //attach to shared memory
-	if (sm2 == NULL) {
-		errorMessage(programName, "Function shmat failed. ");
+	int myResources[20];
+	int i, j;
+	for (i = 0; i < 20; i++) {
+		myResources[i] = 0; //start out with no resources
 	}
 	
 	//set up message queue
@@ -92,7 +85,7 @@ int main(int argc, char *argv[]) {
 	
 	printf("CHILD: To prove we can, let's print the board here\n");
 	//print our resource board
-	int i, j;
+	
 	int y = 3;
 	for (i = 0; i < y; i++) {
 		for (j = 0; j < RESOURCE_COUNT; j++) {
@@ -100,27 +93,17 @@ int main(int argc, char *argv[]) {
 		}
 		printf("\n");
 	}
-	int p;
-	//function to print out sharedMemory2
-	for (p = 0; p < 1; p++) {
-		printf("3Slot #%d, containing PID %d: \n", p, sm2->PCT[i].myPID);
-		int q;
-		for (q = 0; q < 20; q++) {
-			printf("%d ", sm2->PCT[i].myResource[q]);
-		}
-		printf("\n");
-	}
 	
+	//print out resources held by this process, for verification
+	printf("CHILD: Resources held by process %d\n", getpid());
+	int q;
+	for (q = 0; q < 20; q++) {
+		printf("%d ", myResources[q]);
+	}
+	printf("\n");
 	
 	int startSecs, startNano, durationSecs, durationNano, endSecs, endNano; 
 	int terminate = 0;
-	
-	for (i = 0; i < sizeof(sm2->PCT); i++) {
-		if (sm2->PCT[i].myPID == getpid()) {
-			printf("CHILD: Cool, I found myself in the PCT is slot %d!\n", i);
-			break;
-		}
-	}
 	
 	while (terminate != 1) {
 		//wait a few seconds
@@ -146,17 +129,14 @@ int main(int argc, char *argv[]) {
 		printf("CHILD: We are done waiting since we could start at %d:%d and it is now %d:%d\n", endSecs, endNano, sm->clockSecs, sm->clockNano);
 		//now we want to request/release a resource. To do this we need a PCT
 		
-		int p;
-		//function to print out sharedMemory2
-		for (p = 0; p < 1; p++) {
-			printf("4Slot #%d, containing PID %d: \n", p, sm2->PCT[i].myPID);
-			int q;
-			for (q = 0; q < 20; q++) {
-				printf("%d ", sm2->PCT[i].myResource[q]);
-			}
-			printf("\n");
+		//print out resources held by this process, for verification
+		printf("CHILD: Resources held by process %d\n", getpid());
+		int q;
+		for (q = 0; q < 20; q++) {
+			printf("%d ", myResources[q]);
 		}
-		
+		printf("\n");
+			
 		message.mesg_type = getppid(); 
 		strncpy(message.mesg_text, "child to parent", 100);
 		int percent = randomPercent();
@@ -168,60 +148,55 @@ int main(int argc, char *argv[]) {
 			//request a resource
 			message.mesg_value = 2; //2 signifies request
 			printf("CHILD: I want to request a resource\n");
-			//first we should find it in the PCT
-			for (i = 0; i < maxKidsAtATime; i++) {
-				printf("CHILD check 1\n");
-				if (sm2->PCT[i].myPID == getpid()) {
-					printf("CHILD check 2\n");
-					bool validChoice = false;
-					while (validChoice == false) { //if you accidently randomly pick a resource you already have all of, just pick another
-						printf("CHILD check 3\n");
-						//we have found the process that wants to make the request
-						//now we randomly pick the resource that it'll request
-						int res = randomNum(0, 19);
-						printf("We have a request for resource #%d\n", res);
-						printf("I currently have %d of that resource, and the max available is %d\n", sm2->PCT[i].myResource[res], sm->resource[res][1]);
-						if (sm2->PCT[i].myResource[res] < sm->resource[res][0]) { //if we have less then all of this resource...
-							printf("CHILD check 4\n");
-							validChoice = true;
-							//pick a random value from 1-n where n is the literal max it can request before it requested more then could possibly exist
-							int iWant = randomNum(1, sm->resource[res][0] - sm2->PCT[i].myResource[res]);
-							bool complete = false;
-							while (complete == false) { //until I get the resources I want
-								printf("CHILD check 5\n");
-								//satisfy request
-								//sm->resource[res][1] += iWant; //we want to increment total allocated at table, but we need oss to do that for us
-								//send message back confirming request
-								message.mesg_type = getppid();
-								message.request = true; //set to false if we were releasing resources
-								message.resID = res;
-								message.resAmount = iWant;
-								message.return_address = getpid();
-								printf("CHILD: We request %d of resource %d\n", iWant, res);
-								int send = msgsnd(msqid, &message, sizeof(message), 0);
-								if (send == -1) {
-									perror("Error on msgsnd\n");
-								}
-								// display the message 
-								printf("Data send is : %s \n", message.mesg_text); 
-								int receive;
-								receive = msgrcv(msqid, &message, sizeof(message), getpid(), 0); //will wait until is receives a message
-								if (receive < 0) {
-									perror("No message received\n");
-								}
-								// display the message 
-								printf("Data Received is : %s \n", message.mesg_text); 
-								if (message.mesg_value == 10) { //PLACEHOLDER VALUE FOR EARLY TESTING
-									complete = true;
-									printf("CHILD check 6\n");
-									printf("CHILD: We got what we wanted!!\n");
-								} //else, we continue to request and request. If we can never get what we want, we will end up deadlocked
-							}
-						}	
+
+			printf("CHILD check 1\n");
+
+			printf("CHILD check 2\n");
+			bool validChoice = false;
+			while (validChoice == false) { //if you accidently randomly pick a resource you already have all of, just pick another
+				printf("CHILD check 3\n");
+				//we have found the process that wants to make the request
+				//now we randomly pick the resource that it'll request
+				int res = randomNum(0, 19);
+				printf("We have a request for resource #%d\n", res);
+				printf("I currently have %d of that resource, and the max available is %d\n", myResources[res], sm->resource[res][1]);
+				if (myResources[res] < sm->resource[res][0]) { //if we have less then all of this resource...
+					printf("CHILD check 4\n");
+					validChoice = true;
+					//pick a random value from 1-n where n is the literal max it can request before it requested more then could possibly exist
+					int iWant = randomNum(1, sm->resource[res][0] - myResources[res]);
+					bool complete = false;
+					while (complete == false) { //until I get the resources I want
+						printf("CHILD check 5\n");
+						//satisfy request
+						//sm->resource[res][1] += iWant; //we want to increment total allocated at table, but we need oss to do that for us
+						//send message back confirming request
+						message.mesg_type = getppid();
+						message.request = true; //set to false if we were releasing resources
+						message.resID = res;
+						message.resAmount = iWant;
+						message.return_address = getpid();
+						printf("CHILD: We request %d of resource %d\n", iWant, res);
+						int send = msgsnd(msqid, &message, sizeof(message), 0);
+						if (send == -1) {
+							perror("Error on msgsnd\n");
+						}
+						// display the message 
+						printf("Data send is : %s \n", message.mesg_text); 
+						int receive;
+						receive = msgrcv(msqid, &message, sizeof(message), getpid(), 0); //will wait until is receives a message
+						if (receive < 0) {
+							perror("No message received\n");
+						}
+						// display the message 
+						printf("Data Received is : %s \n", message.mesg_text); 
+						if (message.mesg_value == 10) { //PLACEHOLDER VALUE FOR EARLY TESTING
+							complete = true;
+							printf("CHILD check 6\n");
+							printf("CHILD: We got what we wanted!!\n");
+						} //else, we continue to request and request. If we can never get what we want, we will end up deadlocked
 					}
-					printf("Looks like child %d got what it wanted\n", getpid());
-				}
-				printf("I am not stored in PCT[%d] because %d does not equal %d\n", i, sm2->PCT[i].myPID, getpid());
+				}	
 				//then randomly pick which resource it wants
 					//if it has already maxed out on that resource, randomly choose another one
 				//pick a random value from 1-n where n is the literaly max it can request before it requested more then could possibly exist.

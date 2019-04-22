@@ -15,17 +15,16 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include "sharedMemory.h"
-#include "sharedMemory2.h"
 #include "messageQueue.h"
 
 #define CLOCK_INC 1000
 #define RESOURCE_COUNT 20
 
 
-/*struct PCB {
+struct PCB {
 	int myPID; //your local simulated pid
 	int myResource[20];
-};*/
+};
 
 int randomNum(int min, int max) {
 	int num = (rand() % (max - min) + min);
@@ -91,7 +90,19 @@ int main(int argc, char *argv[]) {
 	int maxKidsAtATime = 1; //for now, this is our test value. This will eventually be up to 18, depending on command line arguments
 	
 	//we need our process control table
-	//struct PCB PCT[maxKidsAtATime]; //here we have a table of maxNum process blocks
+	struct PCB PCT[maxKidsAtATime]; //here we have a table of maxNum process blocks
+	int p;
+	//function to set all starting values to 0 and print out all allocated resources
+	for (p = 0; p < maxKidsAtATime; p++) {
+		PCT[p].myPID = 0; 
+		printf("PARENT: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
+		int q;
+		for (q = 0; q < 20; q++) {
+			PCT[p].myResource[q] = 0;
+			printf("%d ", PCT[p].myResource[q]);
+		}
+		printf("\n");
+	}
 	bool boolArray[maxKidsAtATime]; //our "bit vector" (or boolean array here) that will tell us which PRBs are free
 	for (i = 0; i < maxKidsAtATime; i++) {
 		boolArray[i] = false; //just set them all to false - quicker then checking
@@ -110,7 +121,7 @@ int main(int argc, char *argv[]) {
         errorMessage(programName, "Function shmat failed. ");
     }
 	
-	int shm2id; //needed a 2nd shared memory segment to avoid errors where values overwrote each other
+	/*int shm2id; //needed a 2nd shared memory segment to avoid errors where values overwrote each other
 	key_t sh2Key = 1095;
     shared_memory2 *sm2; //allows us to request shared memory data
 	//connect to shared memory
@@ -121,15 +132,15 @@ int main(int argc, char *argv[]) {
     sm2 = (shared_memory2 *) shmat(shm2id, 0, 0);
     if (sm2 == NULL ) {
         errorMessage(programName, "Function shmat failed. ");
-    }
+    }*/
 	
-	int p;
-	//function to print out sharedMemory2
-	for (p = 0; p < 1; p++) {
-		printf("0Slot #%d, containing PID %d: \n", p, sm2->PCT[i].myPID);
+	
+	//function to print out all allocated resources
+	for (p = 0; p < maxKidsAtATime; p++) {
+		printf("PARENT: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
 		int q;
 		for (q = 0; q < 20; q++) {
-			printf("%d ", sm2->PCT[i].myResource[q]);
+			printf("%d ", PCT[p].myResource[q]);
 		}
 		printf("\n");
 	}
@@ -222,11 +233,11 @@ int main(int argc, char *argv[]) {
 					//prepNewChild = false;
 					
 					//let's populate the control block with our data //NOTE: THIS STUFF CAUSED A PROBLEM. IT WAS REMOVED, BUT IT SHOULD BE REPLACED WITH SOMETHING THAT WORKS
-					printf("Changing value %d to %d in PCT[%d]\n", sm2->PCT[openSlot].myPID, pid, openSlot);
-					sm2->PCT[openSlot].myPID = pid;
+					printf("Changing value %d to %d in PCT[%d]\n", PCT[openSlot].myPID, pid, openSlot);
+					PCT[openSlot].myPID = pid;
 					printf("Lets set child %d to 0 resources for starting out\n", pid);
 					for (i = 0; i < RESOURCE_COUNT; i++) {
-						sm2->PCT[openSlot].myResource[i] = 0; //start out with having 0 of each resource
+						PCT[openSlot].myResource[i] = 0; //start out with having 0 of each resource
 					} //does the above hunk of code now work???
 					printf("Child %d is ready to roll\n", pid);
 					printf("Another print out of our resource board at very end of fork section\n");
@@ -236,14 +247,15 @@ int main(int argc, char *argv[]) {
 						}
 						printf("\n");
 					}
-						int p;
-						
-					//function to print out sharedMemory2
-					for (p = 0; p < 1; p++) {
-						printf("1Slot #%d, containing PID %d: \n", p, sm2->PCT[i].myPID);
+					
+					
+					int p;
+					//function to print out all allocated resources
+					for (p = 0; p < maxKidsAtATime; p++) {
+						printf("PARENT: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
 						int q;
 						for (q = 0; q < 20; q++) {
-							printf("%d ", sm2->PCT[i].myResource[q]);
+							printf("%d ", PCT[p].myResource[q]);
 						}
 						printf("\n");
 					}
@@ -334,12 +346,12 @@ int main(int argc, char *argv[]) {
 		} else if (temp > 0) {
 			printf("Process %d confirmed to have ended at %d:%d\n", temp, sm->clockSecs, sm->clockNano);
 			//deallocate resources and continue
-			for (i = 0; i < sizeof(sm2->PCT); i++) {
-				if (sm2->PCT[i].myPID == temp) {
+			for (i = 0; i < maxKidsAtATime; i++) {
+				if (PCT[i].myPID == temp) {
 					boolArray[i] = false;
-					sm2->PCT[i].myPID = 0; //remove PID value from this slot
+					PCT[i].myPID = 0; //remove PID value from this slot
 					for (j = 0; j < 20; j++) {
-						sm2->PCT[i].myResource[j] = 0; //reset each resource to zero
+						PCT[i].myResource[j] = 0; //reset each resource to zero
 					}
 					break; //and for the moment, that's all we should need to deallocate
 				}
@@ -357,12 +369,12 @@ int main(int argc, char *argv[]) {
 		printf("\n");
 	}
 	
-	//function to print out sharedMemory2
-	for (p = 0; p < 1; p++) {
-		printf("2Slot #%d, containing PID %d: \n", p, sm2->PCT[i].myPID);
+	//function to print out all allocated resources
+	for (p = 0; p < maxKidsAtATime; p++) {
+		printf("PARENT: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
 		int q;
 		for (q = 0; q < 20; q++) {
-			printf("%d ", sm2->PCT[i].myResource[q]);
+			printf("%d ", PCT[p].myResource[q]);
 		}
 		printf("\n");
 	}
@@ -372,7 +384,6 @@ int main(int argc, char *argv[]) {
 	//clean up resources
 	int mqDestroy = msgctl(msqid, IPC_RMID, NULL); //destroy message queue
 	int smDestroy = shmctl(shmid, IPC_RMID, NULL); //destroy shared memory
-	int sm2Destroy = shmctl(shm2id, IPC_RMID, NULL); //destroy shared memory 2
 	if (mqDestroy == -1) {
 		perror(" Error with msgctl command: Could not remove message queue ");
 		exit(1);
@@ -381,10 +392,7 @@ int main(int argc, char *argv[]) {
 		perror(" Error with shmctl command: Could not remove shared memory ");
 		exit(1);
 	}
-	if (sm2Destroy == -1) {
-		perror(" Error with shmctl command: Could not remove shared memory ");
-		exit(1);
-	}
+
 
 	endAll(0);
 	return 0;
