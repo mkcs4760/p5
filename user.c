@@ -10,6 +10,7 @@
 #include <sys/shm.h>
 #include <stdbool.h>
 #include "sharedMemory.h"
+#include "sharedMemory2.h"
 #include "messageQueue.h"
 
 #define MAX_TIME_BETWEEN_RESOURCE_CHANGES_NANO 999999999
@@ -59,11 +60,23 @@ int main(int argc, char *argv[]) {
 	int shmid;
 	key_t smKey = 1094;
     shared_memory *sm; //allows us to request shared memory data
-	if ((shmid = shmget(smKey, sizeof(shared_memory) + 256, IPC_CREAT | 0666)) == -1) { //connect to shared memory
+	if ((shmid = shmget(smKey, sizeof(shared_memory), IPC_CREAT | 0666)) == -1) { //connect to shared memory
         errorMessage(programName, "Function shmget failed. ");
     }
 	sm = (shared_memory*) shmat(shmid, 0, 0); //attach to shared memory
 	if (sm == NULL) {
+		errorMessage(programName, "Function shmat failed. ");
+	}
+	
+	//set up shared memory 2
+	int shm2id;
+	key_t sm2Key = 1094;
+    shared_memory2 *sm2; //allows us to request shared memory data
+	if ((shm2id = shmget(sm2Key, sizeof(shared_memory2), IPC_CREAT | 0666)) == -1) { //connect to shared memory
+        errorMessage(programName, "Function shmget failed. ");
+    }
+	sm2 = (shared_memory2*) shmat(shm2id, 0, 0); //attach to shared memory
+	if (sm2 == NULL) {
 		errorMessage(programName, "Function shmat failed. ");
 	}
 	
@@ -92,8 +105,8 @@ int main(int argc, char *argv[]) {
 	int startSecs, startNano, durationSecs, durationNano, endSecs, endNano; 
 	int terminate = 0;
 	
-	for (i = 0; i < sizeof(sm->PCT); i++) {
-		if (sm->PCT[i].myPID == getpid()) {
+	for (i = 0; i < sizeof(sm2->PCT); i++) {
+		if (sm2->PCT[i].myPID == getpid()) {
 			printf("CHILD: Cool, I found myself in the PCT is slot %d!\n", i);
 			break;
 		}
@@ -137,7 +150,7 @@ int main(int argc, char *argv[]) {
 			//first we should find it in the PCT
 			for (i = 0; i < maxKidsAtATime; i++) {
 				printf("CHILD check 1\n");
-				if (sm->PCT[i].myPID == getpid()) {
+				if (sm2->PCT[i].myPID == getpid()) {
 					printf("CHILD check 2\n");
 					bool validChoice = false;
 					while (validChoice == false) { //if you accidently randomly pick a resource you already have all of, just pick another
@@ -146,12 +159,12 @@ int main(int argc, char *argv[]) {
 						//now we randomly pick the resource that it'll request
 						int res = randomNum(0, 19);
 						printf("We have a request for resource #%d\n", res);
-						printf("I currently have %d of that resource, and the max available is %d\n", sm->PCT[i].myResource[res], sm->resource[res][1]);
-						if (sm->PCT[i].myResource[res] < sm->resource[res][0]) { //if we have less then all of this resource...
+						printf("I currently have %d of that resource, and the max available is %d\n", sm2->PCT[i].myResource[res], sm->resource[res][1]);
+						if (sm2->PCT[i].myResource[res] < sm->resource[res][0]) { //if we have less then all of this resource...
 							printf("CHILD check 4\n");
 							validChoice = true;
 							//pick a random value from 1-n where n is the literal max it can request before it requested more then could possibly exist
-							int iWant = randomNum(1, sm->resource[res][0] - sm->PCT[i].myResource[res]);
+							int iWant = randomNum(1, sm->resource[res][0] - sm2->PCT[i].myResource[res]);
 							bool complete = false;
 							while (complete == false) { //until I get the resources I want
 								printf("CHILD check 5\n");

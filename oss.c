@@ -15,6 +15,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include "sharedMemory.h"
+#include "sharedMemory2.h"
 #include "messageQueue.h"
 
 #define CLOCK_INC 1000
@@ -109,6 +110,19 @@ int main(int argc, char *argv[]) {
         errorMessage(programName, "Function shmat failed. ");
     }
 	
+	int shm2id; //needed a 2nd shared memory segment to avoid errors where values overwrote each other
+	key_t sh2Key = 1095;
+    shared_memory2 *sm2; //allows us to request shared memory data
+	//connect to shared memory
+	if ((shm2id = shmget(sh2Key, sizeof(shared_memory2) + 256, IPC_CREAT | 0666)) == -1) {
+		errorMessage(programName, "Function shmget failed. ");
+    }
+	//attach to shared memory
+    sm2 = (shared_memory2 *) shmat(shm2id, 0, 0);
+    if (sm2 == NULL ) {
+        errorMessage(programName, "Function shmat failed. ");
+    }
+	
 	int msqid;
 	key_t mqKey; 
     // ftok to generate unique key 
@@ -196,13 +210,13 @@ int main(int argc, char *argv[]) {
 					//processesRunning++;
 					//prepNewChild = false;
 					
-					//let's populate the control block with our data
-					/*printf("Changing value %d to %d\n", sm->PCT[openSlot].myPID, pid);
-					sm->PCT[openSlot].myPID = pid;
+					//let's populate the control block with our data //NOTE: THIS STUFF CAUSED A PROBLEM. IT WAS REMOVED, BUT IT SHOULD BE REPLACED WITH SOMETHING THAT WORKS
+					printf("Changing value %d to %d\n", sm2->PCT[openSlot].myPID, pid);
+					sm2->PCT[openSlot].myPID = pid;
 					printf("Lets set child %d to 0 resources for starting out\n", pid);
 					for (i = 0; i < RESOURCE_COUNT; i++) {
-						sm->PCT[openSlot].myResource[i] = 0; //start out with having 0 of each resource
-					}*/
+						sm2->PCT[openSlot].myResource[i] = 0; //start out with having 0 of each resource
+					} //does the above hunk of code now work???
 					printf("Child %d is ready to roll\n", pid);
 					printf("Another print out of our resource board at very end of fork section\n");
 					for (i = 0; i < y; i++) {
@@ -298,12 +312,12 @@ int main(int argc, char *argv[]) {
 		} else if (temp > 0) {
 			printf("Process %d confirmed to have ended at %d:%d\n", temp, sm->clockSecs, sm->clockNano);
 			//deallocate resources and continue
-			for (i = 0; i < sizeof(sm->PCT); i++) {
-				if (sm->PCT[i].myPID == temp) {
+			for (i = 0; i < sizeof(sm2->PCT); i++) {
+				if (sm2->PCT[i].myPID == temp) {
 					boolArray[i] = false;
-					sm->PCT[i].myPID = 0; //remove PID value from this slot
+					sm2->PCT[i].myPID = 0; //remove PID value from this slot
 					for (j = 0; j < 20; j++) {
-						sm->PCT[i].myResource[j] = 0; //reset each resource to zero
+						sm2->PCT[i].myResource[j] = 0; //reset each resource to zero
 					}
 					break; //and for the moment, that's all we should need to deallocate
 				}
@@ -327,11 +341,16 @@ int main(int argc, char *argv[]) {
 	//clean up resources
 	int mqDestroy = msgctl(msqid, IPC_RMID, NULL); //destroy message queue
 	int smDestroy = shmctl(shmid, IPC_RMID, NULL); //destroy shared memory
+	int sm2Destroy = shmctl(shm2id, IPC_RMID, NULL); //destroy shared memory 2
 	if (mqDestroy == -1) {
 		perror(" Error with msgctl command: Could not remove message queue ");
 		exit(1);
 	}	
 	if (smDestroy == -1) {
+		perror(" Error with shmctl command: Could not remove shared memory ");
+		exit(1);
+	}
+	if (sm2Destroy == -1) {
 		perror(" Error with shmctl command: Could not remove shared memory ");
 		exit(1);
 	}
