@@ -285,9 +285,15 @@ int main(int argc, char *argv[]) {
 				
 				message.mesg_type = message.return_address; //send it to the process that just sent you something
 				strncpy(message.mesg_text, "parent to child", 100);
-				if (randomNum(1, 10) == 1) {
+				
+				//at first, we set it up to randomly decide if it should accept or reject a request
+				//in the final code, however, we want to accept if the resources are available, and reject otherwise.
+				
+				printf("PARENT: If my systems are correct, there are %d available of that resource\n", sm->resource[message.resID][1]);
+				
+				if (message.resAmount <= sm->resource[message.resID][1]) { //if we are requesting a value less then or equal to that which is available
 					message.mesg_value = 10; //accept request
-					printf("PARENT: I choose to accept the request\n");
+					printf("PARENT: Looks like we can accept this request\n");
 					
 					for (i = 0; i < maxKidsAtATime; i++) {
 						if (PCT[i].myPID == message.return_address) {
@@ -320,7 +326,7 @@ int main(int argc, char *argv[]) {
 					}
 				} else {
 					message.mesg_value = 1; //deny request
-					printf("PARENT: I choose to deny the request\n");
+					printf("PARENT: I am afraid I cannot accept this request\n");
 				}
 				message.return_address = getpid();
 				int send = msgsnd(msqid, &message, sizeof(message), 0); //send message
