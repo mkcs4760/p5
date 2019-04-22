@@ -31,6 +31,9 @@ void errorMessage(char programName[100], char errorString[100]){
 }*/
 
 int randomNum(int min, int max) {
+	if (min == max) {
+		return min;
+	}
 	int num = (rand() % (max - min) + min);
 	return num;
 }
@@ -158,13 +161,14 @@ int main(int argc, char *argv[]) {
 				//we have found the process that wants to make the request
 				//now we randomly pick the resource that it'll request
 				int res = randomNum(0, 19);
-				printf("We have a request for resource #%d\n", res);
-				printf("I currently have %d of that resource, and the max that exist is %d\n", myResources[res], sm->resource[res][0]);
+				printf("CHILD: We have a request for resource #%d\n", res);
+				printf("CHILD: I currently have %d of that resource, and the max that exist is %d\n", myResources[res], sm->resource[res][0]);
 				if (myResources[res] < sm->resource[res][0]) { //if we have less then all of this resource...
 					printf("CHILD check 4\n");
 					validChoice = true;
 					//pick a random value from 1-n where n is the literal max it can request before it requested more then could possibly exist
 					int iWant = randomNum(1, sm->resource[res][0] - myResources[res]);
+					printf("CHILD check 4.5\n");
 					bool complete = false;
 					while (complete == false) { //until I get the resources I want
 						printf("CHILD check 5\n");

@@ -281,91 +281,59 @@ int main(int argc, char *argv[]) {
 			printf("The bool 'receive' that was sent over had a value of %d\n", message.request);
 			if (message.request == true) { //we're requesting a resource
 				printf("Process %d is requesting %d of resource %d\n.", message.return_address, message.resAmount, message.resID);
+				
+				message.mesg_type = message.return_address; //send it to the process that just sent you something
+				strncpy(message.mesg_text, "parent to child", 100);
+				if (randomNum(1, 10) == 1) {
+					message.mesg_value = 10; //accept request
+					printf("PARENT: I choose to accept the request\n");
+					
+					for (i = 0; i < maxKidsAtATime; i++) {
+						if (PCT[i].myPID == message.return_address) {
+							//this is the slot we want to allocate resources to
+							PCT[i].myResource[message.resID] += message.resAmount; //we just allocated a resource
+							printf("Decreasing value %d...\n", sm->resource[message.resID][1]);
+							sm->resource[message.resID][1] -= message.resAmount; //these parameters may possibly be in the wrong order..........
+							printf("PARENT: Process %d got what it wanted!!!!!!!!!!!!!!!\n", PCT[i].myPID);
+							//now let's print out the updated board
+							//print our resource board
+							printf("PARENT: updated printout of our resource board\n");
+							for (i = 0; i < y; i++) {
+								for (j = 0; j < RESOURCE_COUNT; j++) {
+									printf("%d\t", sm->resource[j][i]);
+								}
+								printf("\n");
+							}
+							
+							
+							//function to print out all allocated resources
+							for (p = 0; p < maxKidsAtATime; p++) {
+								printf("PARENT: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
+								int q;
+								for (q = 0; q < 20; q++) {
+									printf("%d ", PCT[p].myResource[q]);
+								}
+								printf("\n");
+							}
+						}
+					}
+				} else {
+					message.mesg_value = 1; //deny request
+					printf("PARENT: I choose to deny the request\n");
+				}
+				message.return_address = getpid();
+				int send = msgsnd(msqid, &message, sizeof(message), 0); //send message
+				if (send == -1) {
+					perror("Error on msgsnd\n");
+				}
+				printf("Data sent is : %s \n", message.mesg_text); // display the message 	
+			
+				
 			} else { //we're releasing a resource
 				printf("Process %d is releasing %d of resource %d\n.", message.return_address, message.resAmount, message.resID);
 			}
 			
-			
-			/*if (message.mesg_value == 1) {
-				//process wants to release resources
-			} else if (message.mesg_value == 2) {
-				//process wants to request resources
-				
-				//first we should find it in the PCT
-				for (i = 0; i < maxKidsAtATime; i++) {
-					if (PCT[i].myPID == message.return_address) {
-						//we have found the process that wants to make the request
-						//now we randomly pick the resource that it'll request
-						int res = randomNum(0, 19);
-						printf("We have a request for resource #%d\n", res);
-						printf("I currently have %d of that resource, and the max available is %d\n", PCT[i].myResource[res], sm->resource[res][0]);
-						if (PCT[i].myResource[res] < sm->resource[res][0]) { //if we have less then all of this resource...
-							//pick a random value from 1-n where n is the literal max it can request before it requested more then could possibly exist
-							int iWant = randomNum(1, sm->resource[res][0] - PCT[i].myResource[res]);
-							//decide if we can satisfy this request
-							if (sm->resource[res][0] - sm->resource[res][1] <= iWant) { //if we are requesting an amount less then or equal to what's available
-								//satisfy request
-								sm->resource[res][1] += iWant; //increment total allocated at table
-								//send message back confirming request
-							} else {
-								//you simply have to wait...
-							}
-						}
-					}
-				//then randomly pick which resource it wants
-					//if it has already maxed out on that resource, randomly choose another one
-				//pick a random value from 1-n where n is the literaly max it can request before it requested more then could possibly exist.
-				//update the resource table with these values,
-				//send a message back confirming that the request has gone through.
-					//if resources are not available, just display a message for now, idk...
-			}*/
-			
-			
-			message.mesg_type = message.return_address; //send it to the process that just sent you something
-			strncpy(message.mesg_text, "parent to child", 100);
-			if (randomNum(1, 10) == 1) {
-				message.mesg_value = 10; //accept request
-				printf("PARENT: I choose to accept the request\n");
-				
-				for (i = 0; i < maxKidsAtATime; i++) {
-					if (PCT[i].myPID == message.return_address) {
-						//this is the slot we want to allocate resources to
-						PCT[i].myResource[message.resID] += message.resAmount; //we just allocated a resource
-						printf("Decreasing value %d...\n", sm->resource[message.resID][1]);
-						sm->resource[message.resID][1] -= message.resAmount; //these parameters may possibly be in the wrong order..........
-						printf("PARENT: Process %d got what it wanted!!!!!!!!!!!!!!!\n", PCT[i].myPID);
-						//now let's print out the updated board
-						//print our resource board
-						printf("PARENT: updated printout of our resource board\n");
-						for (i = 0; i < y; i++) {
-							for (j = 0; j < RESOURCE_COUNT; j++) {
-								printf("%d\t", sm->resource[j][i]);
-							}
-							printf("\n");
-						}
-						
-						
-						//function to print out all allocated resources
-						for (p = 0; p < maxKidsAtATime; p++) {
-							printf("PARENT: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
-							int q;
-							for (q = 0; q < 20; q++) {
-								printf("%d ", PCT[p].myResource[q]);
-							}
-							printf("\n");
-						}
-					}
-				}
-			} else {
-				message.mesg_value = 1; //deny request
-				printf("PARENT: I choose to deny the request\n");
-			}
-			message.return_address = getpid();
-			int send = msgsnd(msqid, &message, sizeof(message), 0); //send message
-			if (send == -1) {
-				perror("Error on msgsnd\n");
-			}
-			printf("Data sent is : %s \n", message.mesg_text); // display the message 			
+		
 		}
 		
 		//we check to see if any of our processes have ended
