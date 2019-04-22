@@ -144,6 +144,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 	//print our resource board
+	printf("First printout of our resource board\n");
 	for (i = 0; i < y; i++) {
 		for (j = 0; j < RESOURCE_COUNT; j++) {
 			printf("%d\t", sm->resource[j][i]);
@@ -162,6 +163,15 @@ int main(int argc, char *argv[]) {
 			int openSlot = checkForOpenSlot(boolArray, maxKidsAtATime);
 			if (openSlot != -1) { //a return value of -1 means all slots are currently filled, and per instructions we are to ignore this process
 				printf("Found empty slot in boolArray[%d]\n", openSlot);
+				
+				printf("Another print out of our resource board right before we fork\n");
+				for (i = 0; i < y; i++) {
+					for (j = 0; j < RESOURCE_COUNT; j++) {
+						printf("%d\t", sm->resource[j][i]);
+					}
+					printf("\n");
+				}
+				
 				pid_t pid;
 				pid = fork();
 				
@@ -170,6 +180,15 @@ int main(int argc, char *argv[]) {
 					errorMessage(programName, "execl function failed. ");
 				}
 				else if (pid > 0) { //parent
+					
+					printf("Another print out of our resource board right after we fork\n");
+					for (i = 0; i < y; i++) {
+						for (j = 0; j < RESOURCE_COUNT; j++) {
+							printf("%d\t", sm->resource[j][i]);
+						}
+						printf("\n");
+					}
+					
 					makeChild = 0; //for now, we only want to create one child, for testing purposes
 					printf("Created child %d at %d:%d\n", pid, sm->clockSecs, sm->clockNano);
 					boolArray[openSlot] = true; //claim that spot
@@ -178,12 +197,20 @@ int main(int argc, char *argv[]) {
 					//prepNewChild = false;
 					
 					//let's populate the control block with our data
+					/*printf("Changing value %d to %d\n", sm->PCT[openSlot].myPID, pid);
 					sm->PCT[openSlot].myPID = pid;
 					printf("Lets set child %d to 0 resources for starting out\n", pid);
 					for (i = 0; i < RESOURCE_COUNT; i++) {
 						sm->PCT[openSlot].myResource[i] = 0; //start out with having 0 of each resource
-					}
+					}*/
 					printf("Child %d is ready to roll\n", pid);
+					printf("Another print out of our resource board at very end of fork section\n");
+					for (i = 0; i < y; i++) {
+						for (j = 0; j < RESOURCE_COUNT; j++) {
+							printf("%d\t", sm->resource[j][i]);
+						}
+						printf("\n");
+					}
 					continue;
 				}
 				else {
@@ -202,7 +229,13 @@ int main(int argc, char *argv[]) {
 		int receive;
 		receive = msgrcv(msqid, &message, sizeof(message), getpid(), IPC_NOWAIT); //will wait until is receives a message
 		if (receive > 0) {
-			printf("Data Received is : %s \n", message.mesg_text); //display the message
+			printf("Data Received from child to parent is : %s \n", message.mesg_text); //display the message
+			printf("The bool 'receive' that was sent over had a value of %d\n", message.request);
+			if (message.request == true) { //we're requesting a resource
+				printf("Process %d is requesting %d of resource %d\n.", message.return_address, message.resAmount, message.resID);
+			} else { //we're releasing a resource
+				printf("Process %d is releasing %d of resource %d\n.", message.return_address, message.resAmount, message.resID);
+			}
 			
 			
 			/*if (message.mesg_value == 1) {
@@ -242,6 +275,13 @@ int main(int argc, char *argv[]) {
 			
 			message.mesg_type = message.return_address; //send it to the process that just sent you something
 			strncpy(message.mesg_text, "parent to child", 100);
+			if (randomNum(1, 10) == 1) {
+				message.mesg_value = 10; //accept request
+				printf("PARENT: I choose to accept the request\n");
+			} else {
+				message.mesg_value = 1; //deny request
+				printf("PARENT: I choose to deny the request\n");
+			}
 			message.return_address = getpid();
 			int send = msgsnd(msqid, &message, sizeof(message), 0); //send message
 			if (send == -1) {
@@ -273,6 +313,15 @@ int main(int argc, char *argv[]) {
 		} //if temp == 0, nothing has ended and we simply carry on
 	}
 
+	//print our resource board
+	for (i = 0; i < y; i++) {
+		for (j = 0; j < RESOURCE_COUNT; j++) {
+			printf("%d\t", sm->resource[j][i]);
+		}
+		printf("\n");
+	}
+	
+	
 	printf("Successful end of program\n");
 	
 	//clean up resources
