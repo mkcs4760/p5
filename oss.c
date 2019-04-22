@@ -21,16 +21,22 @@
 #define RESOURCE_COUNT 20
 
 
-
 struct PCB {
 	int myPID; //your local simulated pid
 	int myResource[20];
 };
 
+int randomNum(int min, int max) {
+	int num = (rand() % (max - min) + min);
+	return num;
+}
+
+/*
 int randomNum() {
 	int num = (rand() % (10) + 1);
 	return num;
 }
+*/
 
 //called whenever we terminate program
 void endAll(int error) {
@@ -124,13 +130,13 @@ int main(int argc, char *argv[]) {
 	int x = RESOURCE_COUNT;
 	
 	for (i = 0; i < y; i++) {
-		for (j = 0; j < x; j++) {
+		for (j = 0; j < RESOURCE_COUNT; j++) {
 			if (i == 0) {
-				sm->resource[j][i] = randomNum(); //set the maximum number of this resource available to the system. These numbers do not change
+				sm->resource[j][i] = randomNum(1, 10); //set the maximum number of this resource available to the system. These numbers do not change
 			} else if ( i == 1) {
 				sm->resource[j][i] = sm->resource[j][0]; //set the current number of available instances of this resource. This number does change
 			} else {
-				if (randomNum() < 3) {
+				if (randomNum(1, 10) < 3) {
 					sm->resource[j][i] = 1; //mark this resource as a sharable resource
 				} else {
 					sm->resource[j][i] = 0; //mark this resource as a nonsharable resource
@@ -140,7 +146,7 @@ int main(int argc, char *argv[]) {
 	}
 	//print our resource board
 	for (i = 0; i < y; i++) {
-		for (j = 0; j < x; j++) {
+		for (j = 0; j < RESOURCE_COUNT; j++) {
 			printf("%d\t", sm->resource[j][i]);
 		}
 		printf("\n");
@@ -197,7 +203,44 @@ int main(int argc, char *argv[]) {
 		int receive;
 		receive = msgrcv(msqid, &message, sizeof(message), getpid(), IPC_NOWAIT); //will wait until is receives a message
 		if (receive > 0) {
-			printf("Data Received is : %s \n", message.mesg_text); //display the message		
+			printf("Data Received is : %s \n", message.mesg_text); //display the message
+			if (message.mesg_value == 1) {
+				//process wants to release resources
+				
+				
+			} else if (message.mesg_value == 2) {
+				//process wants to request resources
+				
+				//first we should find it in the PCT
+				for (i = 0; i < maxKidsAtATime; i++) {
+					if (PCT[i].myPID == message.return_address) {
+						//we have found the process that wants to make the request
+						//now we randomly pick the resource that it'll request
+						int res = randomNum(0, 19);
+						printf("We have a request for resource #%d\n", res);
+						printf("I currently have %d of that resource, and the max available is %d\n", PCT[i].myResource[res], sm->resource[res][0]);
+						if (PCT[i].myResource[res] < sm->resource[res][0]) { //if we have less then all of this resource...
+							//pick a random value from 1-n where n is the literal max it can request before it requested more then could possibly exist
+							int iWant = randomNum(1, sm->resource[res][0] - PCT[i].myResource[res]);
+							//decide if we can satisfy this request
+							if (sm->resource[res][0] - sm->resource[res][1] <= iWant) { //if we are requesting an amount less then or equal to what's available
+								//satisfy request
+								sm->resource[res][1] += iWant; //increment total allocated at table
+								//send message back confirming request
+							} else {
+								//you simply have to wait...
+							}
+						}
+					}
+				//then randomly pick which resource it wants
+					//if it has already maxed out on that resource, randomly choose another one
+				//pick a random value from 1-n where n is the literaly max it can request before it requested more then could possibly exist.
+				//update the resource table with these values,
+				//send a message back confirming that the request has gone through.
+					//if resources are not available, just display a message for now, idk...
+			}
+			
+			
 			message.mesg_type = message.return_address; //send it to the process that just sent you something
 			strncpy(message.mesg_text, "parent to child", 100);
 			message.return_address = getpid();
