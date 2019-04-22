@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
 	srand(time(0)); //placed here so we can generate random numbers later on
 	signal(SIGINT, intHandler); //signal processing
 	printf("Welcome to project 5\n");
-	printf("For the record, parent pid = %d\n", getpid());
+	//printf("For the record, parent pid = %d\n", getpid());
 	
 	int i, j;
 	int maxKidsAtATime = 1; //for now, this is our test value. This will eventually be up to 18, depending on command line arguments
@@ -121,20 +121,6 @@ int main(int argc, char *argv[]) {
         errorMessage(programName, "Function shmat failed. ");
     }
 	
-	/*int shm2id; //needed a 2nd shared memory segment to avoid errors where values overwrote each other
-	key_t sh2Key = 1095;
-    shared_memory2 *sm2; //allows us to request shared memory data
-	//connect to shared memory
-	if ((shm2id = shmget(sh2Key, sizeof(shared_memory2), IPC_CREAT | 0666)) == -1) {
-		errorMessage(programName, "Function shmget failed. ");
-    }
-	//attach to shared memory
-    sm2 = (shared_memory2 *) shmat(shm2id, 0, 0);
-    if (sm2 == NULL ) {
-        errorMessage(programName, "Function shmat failed. ");
-    }*/
-	
-	
 	//function to print out all allocated resources
 	for (p = 0; p < maxKidsAtATime; p++) {
 		printf("PARENT1: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
@@ -149,14 +135,11 @@ int main(int argc, char *argv[]) {
 	key_t mqKey; 
     // ftok to generate unique key 
     mqKey = 2931; //ftok("progfile", 65); 
-	printf("We received a key value of %d\n", mqKey);
+	//printf("We received a key value of %d\n", mqKey);
     // msgget creates a message queue and returns identifier 
     msqid = msgget(mqKey, 0666 | IPC_CREAT);  //create the message queue
 	if (msqid < 0) {
 		printf("Error, msqid equals %d\n", msqid);
-	}
-	else {
-		printf("PARENT: We received a msqid value of %d\n", msqid);
 	}
 	
 	sm->clockSecs = 0; //start the clock at 0
@@ -195,10 +178,10 @@ int main(int argc, char *argv[]) {
 	while (terminate != 1) {
 		if (makeChild == 1) { //we need to make a child process
 		
-			printf("Lets make a child process\n");
+			//printf("Lets make a child process\n");
 			int openSlot = checkForOpenSlot(boolArray, maxKidsAtATime);
 			if (openSlot != -1) { //a return value of -1 means all slots are currently filled, and per instructions we are to ignore this process
-				printf("Found empty slot in boolArray[%d]\n", openSlot);
+				//printf("Found empty slot in boolArray[%d]\n", openSlot);
 				
 				printf("Another print out of our resource board right before we fork\n");
 				for (i = 0; i < y; i++) {
@@ -226,16 +209,16 @@ int main(int argc, char *argv[]) {
 					}
 					
 					makeChild = 0; //for now, we only want to create one child, for testing purposes
-					printf("Created child %d at %d:%d\n", pid, sm->clockSecs, sm->clockNano);
+					printf("PARENT: Created child %d at %d:%d\n", pid, sm->clockSecs, sm->clockNano);
 					boolArray[openSlot] = true; //claim that spot
 					//processesLaunched++; //these will be implemented later, so they remain here as a reminder
 					//processesRunning++;
 					//prepNewChild = false;
 					
 					//let's populate the control block with our data //NOTE: THIS STUFF CAUSED A PROBLEM. IT WAS REMOVED, BUT IT SHOULD BE REPLACED WITH SOMETHING THAT WORKS
-					printf("Changing value %d to %d in PCT[%d]\n", PCT[openSlot].myPID, pid, openSlot);
+					//printf("Changing value %d to %d in PCT[%d]\n", PCT[openSlot].myPID, pid, openSlot);
 					PCT[openSlot].myPID = pid;
-					printf("Lets set child %d to 0 resources for starting out\n", pid);
+					//printf("Lets set child %d to 0 resources for starting out\n", pid);
 					for (i = 0; i < RESOURCE_COUNT; i++) {
 						PCT[openSlot].myResource[0][i] = 0; //start out with having 0 of each resource
 					} //does the above hunk of code now work???
@@ -247,7 +230,6 @@ int main(int argc, char *argv[]) {
 						}
 						printf("\n");
 					}
-					
 					
 					int p;
 					//function to print out all allocated resources
@@ -278,8 +260,8 @@ int main(int argc, char *argv[]) {
 		receive = msgrcv(msqid, &message, sizeof(message), getpid(), IPC_NOWAIT); //will wait until is receives a message
 		if (receive > 0) {
 			printf("PARENT: ALERT! A new conversation started by child %d has just arrived!\n", message.return_address);
-			printf("Data Received from child %d to parent is : %s \n", message.return_address, message.mesg_text); //display the message
-			printf("The bool 'receive' that was sent over had a value of %d\n", message.request);
+			//printf("Data Received from child %d to parent is : %s \n", message.return_address, message.mesg_text); //display the message
+			//printf("The bool 'receive' that was sent over had a value of %d\n", message.request);
 			if (message.request == true) { //we're requesting a resource
 				printf("Process %d is requesting %d of resource %d\n.", message.return_address, message.resAmount, message.resID);
 				
@@ -289,7 +271,7 @@ int main(int argc, char *argv[]) {
 				//at first, we set it up to randomly decide if it should accept or reject a request
 				//in the final code, however, we want to accept if the resources are available, and reject otherwise.
 				
-				printf("PARENT: If my systems are correct, there are %d available of that resource\n", sm->resource[message.resID][1]);
+				//printf("PARENT: If my systems are correct, there are %d available of that resource\n", sm->resource[message.resID][1]);
 				
 				if (message.resAmount <= sm->resource[message.resID][1]) { //if we are requesting a value less then or equal to that which is available
 					message.mesg_value = 10; //accept request
@@ -299,9 +281,9 @@ int main(int argc, char *argv[]) {
 						if (PCT[i].myPID == message.return_address) {
 							//this is the slot we want to allocate resources to
 							PCT[i].myResource[0][message.resID] += message.resAmount; //we just allocated a resource
-							printf("Decreasing value %d...\n", sm->resource[message.resID][1]);
+							//printf("Decreasing value %d...\n", sm->resource[message.resID][1]);
 							sm->resource[message.resID][1] -= message.resAmount; //these parameters may possibly be in the wrong order..........
-							printf("PARENT: Process %d got what it wanted!!!!!!!!!!!!!!!\n", PCT[i].myPID);
+							//printf("PARENT: Process %d got what it wanted!!!!!!!!!!!!!!!\n", PCT[i].myPID);
 							//now let's print out the updated board
 							//print our resource board
 							printf("PARENT: updated printout of our resource board\n");
@@ -333,21 +315,21 @@ int main(int argc, char *argv[]) {
 				if (send == -1) {
 					perror("Error on msgsnd\n");
 				}
-				printf("Data sent is : %s \n", message.mesg_text); // display the message 	
+				//printf("Data sent is : %s \n", message.mesg_text); // display the message 	
 			
 				
 			} else { //we're releasing a resource
 				printf("Process %d is releasing %d of resource %d\n", message.return_address, message.resAmount, message.resID);
 				
 				for (i = 0; i < maxKidsAtATime; i++) {
-					printf("PARENT check 0\n");
-					printf("Let's compare %d and %d\n", PCT[i].myPID, message.return_address);
+					//printf("PARENT check 0\n");
+					//printf("Let's compare %d and %d\n", PCT[i].myPID, message.return_address);
 					if (PCT[i].myPID == message.return_address) {
-						printf("PARENT check 1\n");
+						//printf("PARENT check 1\n");
 						//this is the slot we want to deallocate resources to
 						PCT[i].myResource[0][message.resID] -= message.resAmount; //we just deallocated a resource
 						sm->resource[message.resID][1] += message.resAmount; //just moved resources from allocation in PCT to free in resource table
-						printf("PARENT: Process %d successfully released resources\n", message.return_address);
+						//printf("PARENT: Process %d successfully released resources\n", message.return_address);
 							
 						//now let's print out the updated board
 						//print our resource board
@@ -359,7 +341,7 @@ int main(int argc, char *argv[]) {
 							printf("\n");
 						}
 							
-						printf("PARENT check 2\n");	
+						//printf("PARENT check 2\n");	
 						//function to print out all allocated resources
 						for (p = 0; p < maxKidsAtATime; p++) {
 							printf("PARENT4: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
@@ -369,16 +351,16 @@ int main(int argc, char *argv[]) {
 							}
 							printf("\n");
 						}
-						printf("PARENT check 3\n");
-						printf("PARENT: Sending message back to process %d to let them know we released their resources\n", message.return_address);
+						//printf("PARENT check 3\n");
+						//printf("PARENT: Sending message back to process %d to let them know we released their resources\n", message.return_address);
 						message.mesg_type = message.return_address;
 						message.return_address = getpid();
 						int send = msgsnd(msqid, &message, sizeof(message), 0); //send message
 						if (send == -1) {
 							perror("Error on msgsnd\n");
 						}
-						printf("Data sent is : %s \n", message.mesg_text); // display the messag
-						printf("PARENT check 4\n");
+						//printf("Data sent is : %s \n", message.mesg_text); // display the messag
+						//printf("PARENT check 4\n");
 					}
 
 				
@@ -399,7 +381,7 @@ int main(int argc, char *argv[]) {
 			for (i = 0; i < maxKidsAtATime; i++) {
 				if (PCT[i].myPID == temp) {
 					boolArray[i] = false;
-					printf("PARENT: Deallocating process %d from PCT\n", PCT[i].myPID);
+					//printf("PARENT: Deallocating process %d from PCT\n", PCT[i].myPID);
 					PCT[i].myPID = 0; //remove PID value from this slot
 					for (j = 0; j < 20; j++) {
 						PCT[i].myResource[0][j] = 0; //reset each resource to zero
@@ -457,7 +439,6 @@ int main(int argc, char *argv[]) {
 		perror(" Error with shmctl command: Could not remove shared memory ");
 		exit(1);
 	}
-
 
 	endAll(0);
 	return 0;
