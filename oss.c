@@ -23,7 +23,7 @@
 
 struct PCB {
 	int myPID; //your local simulated pid
-	int myResource[20];
+	int myResource[2][20]; //[0] is what it has, [1] is what it wants
 };
 
 int randomNum(int min, int max) {
@@ -98,8 +98,8 @@ int main(int argc, char *argv[]) {
 		printf("PARENT0: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
 		int q;
 		for (q = 0; q < 20; q++) {
-			PCT[p].myResource[q] = 0;
-			printf("%d ", PCT[p].myResource[q]);
+			PCT[p].myResource[0][q] = 0;
+			printf("%d ", PCT[p].myResource[0][q]);
 		}
 		printf("\n");
 	}
@@ -140,7 +140,7 @@ int main(int argc, char *argv[]) {
 		printf("PARENT1: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
 		int q;
 		for (q = 0; q < 20; q++) {
-			printf("%d ", PCT[p].myResource[q]);
+			printf("%d ", PCT[p].myResource[0][q]);
 		}
 		printf("\n");
 	}
@@ -237,7 +237,7 @@ int main(int argc, char *argv[]) {
 					PCT[openSlot].myPID = pid;
 					printf("Lets set child %d to 0 resources for starting out\n", pid);
 					for (i = 0; i < RESOURCE_COUNT; i++) {
-						PCT[openSlot].myResource[i] = 0; //start out with having 0 of each resource
+						PCT[openSlot].myResource[0][i] = 0; //start out with having 0 of each resource
 					} //does the above hunk of code now work???
 					printf("Child %d is ready to roll\n", pid);
 					printf("Another print out of our resource board at very end of fork section\n");
@@ -255,7 +255,7 @@ int main(int argc, char *argv[]) {
 						printf("PARENT2: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
 						int q;
 						for (q = 0; q < 20; q++) {
-							printf("%d ", PCT[p].myResource[q]);
+							printf("%d ", PCT[p].myResource[0][q]);
 						}
 						printf("\n");
 					}
@@ -298,7 +298,7 @@ int main(int argc, char *argv[]) {
 					for (i = 0; i < maxKidsAtATime; i++) {
 						if (PCT[i].myPID == message.return_address) {
 							//this is the slot we want to allocate resources to
-							PCT[i].myResource[message.resID] += message.resAmount; //we just allocated a resource
+							PCT[i].myResource[0][message.resID] += message.resAmount; //we just allocated a resource
 							printf("Decreasing value %d...\n", sm->resource[message.resID][1]);
 							sm->resource[message.resID][1] -= message.resAmount; //these parameters may possibly be in the wrong order..........
 							printf("PARENT: Process %d got what it wanted!!!!!!!!!!!!!!!\n", PCT[i].myPID);
@@ -318,7 +318,7 @@ int main(int argc, char *argv[]) {
 								printf("PARENT3: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
 								int q;
 								for (q = 0; q < 20; q++) {
-									printf("%d ", PCT[p].myResource[q]);
+									printf("%d ", PCT[p].myResource[0][q]);
 								}
 								printf("\n");
 							}
@@ -345,7 +345,7 @@ int main(int argc, char *argv[]) {
 					if (PCT[i].myPID == message.return_address) {
 						printf("PARENT check 1\n");
 						//this is the slot we want to deallocate resources to
-						PCT[i].myResource[message.resID] -= message.resAmount; //we just deallocated a resource
+						PCT[i].myResource[0][message.resID] -= message.resAmount; //we just deallocated a resource
 						sm->resource[message.resID][1] += message.resAmount; //just moved resources from allocation in PCT to free in resource table
 						printf("PARENT: Process %d successfully released resources\n", message.return_address);
 							
@@ -365,7 +365,7 @@ int main(int argc, char *argv[]) {
 							printf("PARENT4: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
 							int q;
 							for (q = 0; q < 20; q++) {
-								printf("%d ", PCT[p].myResource[q]);
+								printf("%d ", PCT[p].myResource[0][q]);
 							}
 							printf("\n");
 						}
@@ -402,7 +402,7 @@ int main(int argc, char *argv[]) {
 					printf("PARENT: Deallocating process %d from PCT\n", PCT[i].myPID);
 					PCT[i].myPID = 0; //remove PID value from this slot
 					for (j = 0; j < 20; j++) {
-						PCT[i].myResource[j] = 0; //reset each resource to zero
+						PCT[i].myResource[0][j] = 0; //reset each resource to zero
 					}
 					break; //and for the moment, that's all we should need to deallocate
 				}
@@ -410,6 +410,20 @@ int main(int argc, char *argv[]) {
 			//processesRunning--;
 			terminate = 1;
 		} //if temp == 0, nothing has ended and we simply carry on
+		
+		//once every blue moon, we check for a deadlock here
+		if (sm->clockNano == 0) { //once a "second," perhaps
+			//began algorithm
+			printf("DEADLOCK DETECTION ALGORITHM\n");
+			//copy all data into "simulation" version of them. These we will manipulate withour destroying the system data
+			
+			//look at each process in order - see if you can give it the resources it wants
+				//if so, simulate releasing it's resources, and mark a flag saying a change was made
+				//if not, move to the next one and do nothing (?)
+			//continue until we've either ended all processes or we've gone once without making a change
+				//if we've ended all processes, no deadlock exists. We're done and continue
+				//if we've gone once without making a change, deadlock exists. Kill off those children and release their resources. Then continue
+		}
 	}
 
 	//print our resource board
@@ -425,7 +439,7 @@ int main(int argc, char *argv[]) {
 		printf("PARENT5: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
 		int q;
 		for (q = 0; q < 20; q++) {
-			printf("%d ", PCT[p].myResource[q]);
+			printf("%d ", PCT[p].myResource[0][q]);
 		}
 		printf("\n");
 	}
