@@ -67,6 +67,16 @@ int main(int argc, char *argv[]) {
 	
 	int startSecs, startNano, durationSecs, durationNano, endSecs, endNano; 
 	int terminate = 0;
+	
+	int i;
+	for (i = 0; i < sizeof(sm->PCT); i++) {
+		if (sm->PCT[i].myPID == getpid()) {
+			printf("CHILD: Cool, I found myself in the PCT is slot %d!\n", i);
+			break;
+		}
+	}
+	
+	
 	while (terminate != 1) {
 		//wait a few seconds
 		//decide to either request or release some resources
@@ -93,6 +103,14 @@ int main(int argc, char *argv[]) {
 		
 		message.mesg_type = getppid(); 
 		strncpy(message.mesg_text, "child to parent", 100);
+		int percent = randomPercent();
+		if (percent < 46) {
+			//release a resource
+			message.mesg_value = 1; //1 signifies release
+		} else {
+			//request a resource
+			message.mesg_value = 2; //2 signifies request
+		}
 		message.return_address = getpid();
 		// msgsnd to send message 
 		int send = msgsnd(msqid, &message, sizeof(message), 0);

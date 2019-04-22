@@ -21,10 +21,10 @@
 #define RESOURCE_COUNT 20
 
 
-struct PCB {
+/*struct PCB {
 	int myPID; //your local simulated pid
 	int myResource[20];
-};
+};*/
 
 int randomNum(int min, int max) {
 	int num = (rand() % (max - min) + min);
@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
 	int maxKidsAtATime = 1; //for now, this is our test value. This will eventually be up to 18, depending on command line arguments
 	
 	//we need our process control table
-	struct PCB PCT[maxKidsAtATime]; //here we have a table of maxNum process blocks
+	//struct PCB PCT[maxKidsAtATime]; //here we have a table of maxNum process blocks
 	bool boolArray[maxKidsAtATime]; //our "bit vector" (or boolean array here) that will tell us which PRBs are free
 	for (i = 0; i < maxKidsAtATime; i++) {
 		boolArray[i] = false; //just set them all to false - quicker then checking
@@ -127,7 +127,6 @@ int main(int argc, char *argv[]) {
 	sm->clockNano = 0;
 	
 	int y = 3;
-	int x = RESOURCE_COUNT;
 	
 	for (i = 0; i < y; i++) {
 		for (j = 0; j < RESOURCE_COUNT; j++) {
@@ -179,10 +178,10 @@ int main(int argc, char *argv[]) {
 					//prepNewChild = false;
 					
 					//let's populate the control block with our data
-					PCT[openSlot].myPID = pid;
+					sm->PCT[openSlot].myPID = pid;
 					printf("Lets set child %d to 0 resources for starting out\n", pid);
 					for (i = 0; i < RESOURCE_COUNT; i++) {
-						PCT[openSlot].myResource[i] = 0; //start out with having 0 of each resource
+						sm->PCT[openSlot].myResource[i] = 0; //start out with having 0 of each resource
 					}
 					printf("Child %d is ready to roll\n", pid);
 					continue;
@@ -204,10 +203,10 @@ int main(int argc, char *argv[]) {
 		receive = msgrcv(msqid, &message, sizeof(message), getpid(), IPC_NOWAIT); //will wait until is receives a message
 		if (receive > 0) {
 			printf("Data Received is : %s \n", message.mesg_text); //display the message
-			if (message.mesg_value == 1) {
+			
+			
+			/*if (message.mesg_value == 1) {
 				//process wants to release resources
-				
-				
 			} else if (message.mesg_value == 2) {
 				//process wants to request resources
 				
@@ -238,7 +237,7 @@ int main(int argc, char *argv[]) {
 				//update the resource table with these values,
 				//send a message back confirming that the request has gone through.
 					//if resources are not available, just display a message for now, idk...
-			}
+			}*/
 			
 			
 			message.mesg_type = message.return_address; //send it to the process that just sent you something
@@ -259,12 +258,12 @@ int main(int argc, char *argv[]) {
 		} else if (temp > 0) {
 			printf("Process %d confirmed to have ended at %d:%d\n", temp, sm->clockSecs, sm->clockNano);
 			//deallocate resources and continue
-			for (i = 0; i < sizeof(PCT); i++) {
-				if (PCT[i].myPID == temp) {
+			for (i = 0; i < sizeof(sm->PCT); i++) {
+				if (sm->PCT[i].myPID == temp) {
 					boolArray[i] = false;
-					PCT[i].myPID = 0; //remove PID value from this slot
+					sm->PCT[i].myPID = 0; //remove PID value from this slot
 					for (j = 0; j < 20; j++) {
-						PCT[i].myResource[j] = 0; //reset each resource to zero
+						sm->PCT[i].myResource[j] = 0; //reset each resource to zero
 					}
 					break; //and for the moment, that's all we should need to deallocate
 				}
