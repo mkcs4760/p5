@@ -13,7 +13,6 @@
 #include "messageQueue.h"
 
 #define MAX_TIME_BETWEEN_RESOURCE_CHANGES_NANO 999999999
-#define MAX_TIME_BETWEEN_RESOURCE_CHANGES_SECS 1
 #define RESOURCE_COUNT 20
 
 //takes in program name and error string, and runs error message procedure
@@ -48,7 +47,7 @@ int main(int argc, char *argv[]) {
 
 	srand(time(0)); //placed here so we can generate random numbers later on
 	
-	printf("CHILD: Welcome to Child #%d\n", getpid());
+	printf("CHILD: Child #%d has started\n", getpid());
 	
 	//int maxKidsAtATime = 1; //this is only hear for testing. Eventually this will be replaced with a CONSTENT
 	
@@ -98,11 +97,11 @@ int main(int argc, char *argv[]) {
 			endSecs += 1;
 			endNano -= 1000000000;
 		}
-		printf("CHILD: We will change our resource needs at %d:%d\n", endSecs, endNano); //we will try to launch our next child at endSecs:endNano
+		//printf("CHILD: We will change our resource needs at %d:%d\n", endSecs, endNano); //we will try to launch our next child at endSecs:endNano
 		
 		while((endSecs > sm->clockSecs) || ((endSecs == sm->clockSecs) && (endNano > sm->clockNano))); //this dead wait will not work in final project
 		
-		printf("CHILD: We are done waiting since we could start at %d:%d and it is now %d:%d\n", endSecs, endNano, sm->clockSecs, sm->clockNano);
+		//printf("CHILD: We are done waiting since we could start at %d:%d and it is now %d:%d\n", endSecs, endNano, sm->clockSecs, sm->clockNano);
 		//now we want to request/release a resource. To do this we need a PCT
 			
 		message.mesg_type = getppid(); 
@@ -125,7 +124,7 @@ int main(int argc, char *argv[]) {
 				percent = 46; //set it up so we'll end up requesting instead
 			} else {
 				int ourPick = randomNum(1, numOurResources);
-				printf("CHILD this process currently has some of %d resources, so we've randomly decided to release some of the %dth resource\n", numOurResources, ourPick);
+				//printf("CHILD this process currently has some of %d resources, so we've randomly decided to release some of the %dth resource\n", numOurResources, ourPick);
 				int counter = 0;
 				for (i = 0; i < RESOURCE_COUNT; i++) {
 					if (myResources[i] != 0) {
@@ -137,11 +136,11 @@ int main(int argc, char *argv[]) {
 						}
 					}
 				}
-				printf("CHILD: That resource is resource #%d\n", ourPick);
+				//printf("CHILD: That resource is resource #%d\n", ourPick);
 				//printf("CHILD: I currently have %d of resource #%d, and the total amount of that resource is %d\n", myResources[ourPick], ourPick, sm->resource[ourPick][0]);
 				//printf("test ends here...\n");
 				int giveAway = randomNum(1, myResources[ourPick]);
-				printf("CHILD: I want to give away %d of resource %d\n", giveAway, ourPick);
+				//printf("CHILD: I (%d) want to give away %d of resource %d\n", getpid(), giveAway, ourPick);
 				
 				message.mesg_type = getppid();
 				message.request = false; //set to false if we were releasing resources
@@ -153,7 +152,7 @@ int main(int argc, char *argv[]) {
 				if (send == -1) {
 					perror("Error on msgsnd\n");
 				}
-				printf("CHILD: Send1 - awaiting response...\n");
+				//printf("CHILD: %d sent message --- awaiting response...\n", getpid());
 				int receive;
 				receive = msgrcv(msqid, &message, sizeof(message), getpid(), 0); //will wait until is receives a message
 				if (receive < 0) {
@@ -164,17 +163,17 @@ int main(int argc, char *argv[]) {
 				//unless I'm missing something, there is no situation where we would not release a resource unless the process doesn't really have it
 				//but in that case, there's an unsolveable error already, and we would terminate anyway
 				
-				printf("CHILD: We released our resource1 Yay!\n");
+				//printf("CHILD: We released our resource1 Yay!\n");
 				//release it on the child end now
 				myResources[ourPick] -= giveAway;
-				printf("CHILD: We are left with %d of resource #%d\n", myResources[ourPick], ourPick);
+				//printf("CHILD: We are left with %d of resource #%d\n", myResources[ourPick], ourPick);
 				
 			}		
 		} 
 		if (percent > 45) {
 			//request a resource
 			message.mesg_value = 2; //2 signifies request
-			printf("CHILD: I want to request a resource\n");
+			//printf("CHILD: I want to request a resource\n");
 			bool validChoice = false;
 			while (validChoice == false) { //if you accidently randomly pick a resource you already have all of, just pick another
 				//we have found the process that wants to make the request
@@ -194,14 +193,14 @@ int main(int argc, char *argv[]) {
 						message.resID = res;
 						message.resAmount = iWant;
 						message.return_address = getpid();
-						printf("CHILD: We request %d of resource %d\n", iWant, res);
+						//printf("CHILD: process %d requests %d of resource %d\n", getpid(), iWant, res);
 						int send = msgsnd(msqid, &message, sizeof(message), 0);
 						if (send == -1) {
 							perror("Error on msgsnd\n");
 						}
 						// display the message 
 						//printf("CHILD: Data send is : %s \n", message.mesg_text); 
-						printf("CHILD: Send2 - awaiting response...\n");
+						//printf("CHILD: %d sent message --- awaiting response...\n", getpid());
 						int receive;
 						receive = msgrcv(msqid, &message, sizeof(message), getpid(), 0); //will wait until is receives a message
 						if (receive < 0) {
@@ -212,7 +211,7 @@ int main(int argc, char *argv[]) {
 						if (message.mesg_value == 10) { //PLACEHOLDER VALUE FOR EARLY TESTING
 							complete = true;
 							//printf("CHILD check 6\n");
-							printf("CHILD: We got %d more of resource %d. We got what we wanted!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n", iWant, res);
+							//printf("CHILD: Process %d got %d more of resource %d\n", getpid(), iWant, res);
 							myResources[res] += iWant;
 
 						} //else, we continue to request and request. If we can never get what we want, we will end up deadlocked
@@ -234,7 +233,14 @@ int main(int argc, char *argv[]) {
 			printf("CHILD %d decides it's time to terminate\n", getpid());
 			terminate = 1;
 		}
+
 	}
+		
+	printf("This was ending allocation for process %d\n", getpid());
+	for (i = 0; i < RESOURCE_COUNT; i++) {
+		printf("%d ", myResources[i]);
+	}
+	printf("\n");	
 	
 	printf("CHILD: Ending child %d at %d:%d\n", getpid(), sm->clockSecs, sm->clockNano);
 	return 0;
