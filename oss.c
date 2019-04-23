@@ -40,11 +40,11 @@ void endAll(int error) {
 		kill(-1*getpid(), SIGKILL);	
 }
 
-//checks our boolArray for an open slot to save the process. Returns -1 if none exist
-int checkForOpenSlot(bool boolArray[], int maxKidsAtATime) {
+//checks our PCT for an open slot to save the process. Returns -1 if none exist
+int checkForOpenSlot(struct PCB PCT[], int maxKidsAtATime) {
 	int i;
 	for (i = 0; i < maxKidsAtATime; i++) {
-		if (boolArray[i] == false) {
+		if (PCT[i].myPID == 0) {
 			return i;
 		}
 	}
@@ -97,10 +97,10 @@ int main(int argc, char *argv[]) {
 		}
 		printf("\n");
 	}
-	bool boolArray[maxKidsAtATime]; //our "bit vector" (or boolean array here) that will tell us which PRBs are free
+	/*bool boolArray[maxKidsAtATime]; //our "bit vector" (or boolean array here) that will tell us which PRBs are free
 	for (i = 0; i < maxKidsAtATime; i++) {
 		boolArray[i] = false; //just set them all to false - quicker then checking
-	}
+	}*/
 	
 	int shmid;
 	key_t shKey = 1094;
@@ -161,7 +161,7 @@ int main(int argc, char *argv[]) {
 		if (makeChild == 1) { //we need to make a child process
 		
 			printf("Lets make a child process\n");
-			int openSlot = checkForOpenSlot(boolArray, maxKidsAtATime);
+			int openSlot = checkForOpenSlot(PCT, maxKidsAtATime);
 			if (openSlot != -1) { //a return value of -1 means all slots are currently filled, and per instructions we are to ignore this process
 
 				pid_t pid;
@@ -174,7 +174,7 @@ int main(int argc, char *argv[]) {
 				else if (pid > 0) { //parent
 					makeChild = 0; //for now, we only want to create one child, for testing purposes
 					printf("PARENT: Created child %d at %d:%d\n", pid, sm->clockSecs, sm->clockNano);
-					boolArray[openSlot] = true; //claim that spot
+					//boolArray[openSlot] = true; //claim that spot
 					//processesLaunched++; //these will be implemented later, so they remain here as a reminder
 					//processesRunning++;
 					//prepNewChild = false;
@@ -283,8 +283,8 @@ int main(int argc, char *argv[]) {
 				if (PCT[i].myPID == temp) {
 					printf("PARENT: ending process checkpoint 3\n");
 					printf("Currently, i = %d\n", i); //i is the correct value and makes no difference as to whehter or not the next line crashes
-					printf("boolArray[%d] currently equals %d\n", i, boolArray[i]);
-					boolArray[i] = false; //this line is causing a seg fault...
+					//printf("boolArray[%d] currently equals %d\n", i, boolArray[i]);
+					//boolArray[i] = false; //this line is causing a seg fault...
 					printf("PARENT: Deallocating process %d from PCT\n", PCT[i].myPID);
 					PCT[i].myPID = 0; //remove PID value from this slot
 					for (j = 0; j < RESOURCE_COUNT; j++) {
@@ -305,22 +305,32 @@ int main(int argc, char *argv[]) {
 		//printf("check to see if we should run deadlock detection algorithm\n");
 		if (sm->clockNano == 0) { //once a "second," perhaps
 			//began algorithm
-			printf("DEADLOCK DETECTION ALGORITHM beginning\n");
+			/*sprintf("DEADLOCK DETECTION ALGORITHM beginning\n");
 			//copy all data into "simulation" version of them. These we will manipulate without destroying the system data
 			
 				//struct PCB sPCT[maxKidsAtATime]; //simulated PCT used for deadlock detection
 				//int sResource[3][RESOURCE_COUNT];
 				
 			//so first step: copy all data into these two structures, then veryify that they're correct	
-			
+			printf("DDA check 1\n");
 			for (i = 0; i < maxKidsAtATime; i++) {
+				printf("DDA check 1.2\n");
+				printf("Can we print sPCT? ");
+				printf("%d\n", sPCT[i].myPID);
+				printf("What about PCT? ");
+				printf("%d\n", PCT[i].myPID);
+				printf("Can we run a line with both together?\n");
 				sPCT[i].myPID = PCT[i].myPID;
+				printf("DDA check 1.3\n");
 				for (j = 0; j < RESOURCE_COUNT; j++) {
+					printf("DDA check 1.4\n");
 					sPCT[i].myResource[0][j] = PCT[i].myResource[0][j];
+					printf("DDA check 1.5\n");
 					sPCT[i].myResource[1][j] = PCT[i].myResource[1][j];
+					printf("DDA check 1\n.6");
 				}
 			}
-				
+			printf("DDA check 2\n");	
 			
 			for (i = 0; i < RESOURCE_COUNT; i++) {
 				//printf("Saving %d is slot [%d][%d]\n", sm->resource[i][0], i, 0);
@@ -330,10 +340,10 @@ int main(int argc, char *argv[]) {
 				//printf("Saving %d is slot [%d][%d]\n", sm->resource[i][2], i, 2);
 				sResource[i][2] = sm->resource[i][2];
 			}
-			
+			printf("DDA check 3\n");
 			printf("DEADLOCK DETECTION successful completion\n");
 			
-			
+			*/
 			
 			//look at each process in order - see if you can give it the resources it wants
 				//if so, simulate releasing it's resources, and mark a flag saying a change was made
