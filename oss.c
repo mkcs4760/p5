@@ -281,6 +281,7 @@ int main(int argc, char *argv[]) {
 						if (PCT[i].myPID == message.return_address) {
 							//this is the slot we want to allocate resources to
 							PCT[i].myResource[0][message.resID] += message.resAmount; //we just allocated a resource
+							PCT[i].myResource[1][message.resID] = 0; //we just got some of this resource, so set our desired amount to 0. Quick to just set it then check if it has been set or not
 							//printf("Decreasing value %d...\n", sm->resource[message.resID][1]);
 							sm->resource[message.resID][1] -= message.resAmount; //these parameters may possibly be in the wrong order..........
 							//printf("PARENT: Process %d got what it wanted!!!!!!!!!!!!!!!\n", PCT[i].myPID);
@@ -309,6 +310,13 @@ int main(int argc, char *argv[]) {
 				} else {
 					message.mesg_value = 1; //deny request
 					printf("PARENT: I am afraid I cannot accept this request\n");
+					//mark it as desired
+					for (i = 0; i < maxKidsAtATime; i++) {
+						if (PCT[i].myPID == message.return_address) {
+							PCT[i].myResource[1][message.resID] = message.resAmount; //say that this PID wants this resource
+							break;
+						}
+					}
 				}
 				message.return_address = getpid();
 				int send = msgsnd(msqid, &message, sizeof(message), 0); //send message
