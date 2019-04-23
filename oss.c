@@ -24,6 +24,8 @@
 struct PCB {
 	int myPID; //your local simulated pid
 	int myResource[2][RESOURCE_COUNT]; //[0] is what it has, [1] is what it wants
+	/*int waitRes; //the resource this process is waiting on
+	int waitAmount; //th*/
 };
 
 int randomNum(int min, int max) {
@@ -214,7 +216,7 @@ int main(int argc, char *argv[]) {
 		int receive;
 		receive = msgrcv(msqid, &message, sizeof(message), getpid(), IPC_NOWAIT); //will wait until is receives a message
 		if (receive > 0) {
-			//printf("PARENT: ALERT! A new conversation started by child %d has just arrived!\n", message.return_address);
+			printf("PARENT: ALERT! A new conversation started by child %d has just arrived!\n", message.return_address);
 			if (message.request == true) { //we're requesting a resource
 				printf("PARENT: Process %d is requesting %d of resource %d\n", message.return_address, message.resAmount, message.resID);
 				
@@ -233,6 +235,13 @@ int main(int argc, char *argv[]) {
 							sm->resource[message.resID][1] -= message.resAmount; //these parameters may possibly be in the wrong order..........
 						}
 					}
+					
+					message.return_address = getpid();
+					int send = msgsnd(msqid, &message, sizeof(message), 0); //send message
+					if (send == -1) {
+						perror("Error on msgsnd\n");
+					}
+					
 				} else {
 					message.mesg_value = 1; //deny request
 					printf("PARENT: I am afraid I cannot accept this request\n");
@@ -243,13 +252,17 @@ int main(int argc, char *argv[]) {
 							break;
 						}
 					}
-					kill(-1*getpid(), SIGKILL);	//just for TESTING ONLY!!!
+					//don't send a message back, so we don't unpause it
+					//kill(-1*getpid(), SIGKILL);	//just for TESTING ONLY!!!
+					
+					
+					
+					//MORE NEEDS TO GO HERE
+					//right now, the process needs to go into a blocked queue, and wait for its resource to become available.
+					//Once it's available, it needs to be claimed and a message sent back to unapuse the child
+					
 				}
-				message.return_address = getpid();
-				int send = msgsnd(msqid, &message, sizeof(message), 0); //send message
-				if (send == -1) {
-					perror("Error on msgsnd\n");
-				}
+
 				//printf("Data sent is : %s \n", message.mesg_text); // display the message 	
 			
 				
@@ -309,6 +322,48 @@ int main(int argc, char *argv[]) {
 			}
 			//printf("PARENT: ending process checkpoint 5\n");
 		} //if temp == 0, nothing has ended and we simply carry on
+		
+		//check to see if any processes can be unblocked thanks to more resources
+		/*for (i = 0; i < maxKidsAtATime; i++) {
+			for (j = 0; j < RESOURCE_COUNT; j++) {
+				if (PCT[i].myResource[i][j] > 0) { //if so, we are waiting on this amount of resource j
+					//check if this resource is now available...
+					if (sm->resource[1][j] >= PCT[i].myResource[i][j]) {
+						//we can allocate these resources and release this process
+						//printf("We made it here because PCT[i].myResource[i][j] equals %d, and that is less then sm->resource[1][j], which equals %d\n",PCT[i].myResource[i][j], sm->resource[1][j]);
+						
+						message.mesg_type = PCT[i].myPID;
+						message.mesg_value = 10; //accept request
+						printf("PARENT: Looks like we can finally give %d it's %d shares of %d\n", PCT[i].myPID, PCT[i].myResource[i][j], j);
+						
+						
+						for (i = 0; i < maxKidsAtATime; i++) {
+							if (PCT[i].myPID == message.return_address) {
+								//this is the slot we want to allocate resources to
+								PCT[i].myResource[0][message.resID] += message.resAmount; //we just allocated a resource
+								PCT[i].myResource[1][message.resID] = 0; //we just got some of this resource, so set our desired amount to 0. Quick to just set it then check if it has been set or not
+								sm->resource[message.resID][1] -= message.resAmount; //these parameters may possibly be in the wrong order..........
+							}
+						}
+						
+						message.return_address = getpid();
+						int send = msgsnd(msqid, &message, sizeof(message), 0); //send message
+						if (send == -1) {
+							perror("Error on msgsnd\n");
+						}
+						
+					}
+					
+					
+				}
+			
+			}
+		
+			if (PCT[i].myPID == message.return_address) {
+				PCT[i].myResource[1][message.resID] = message.resAmount; //say that this PID wants this resource
+				break;
+			}
+		}*/
 		
 		//once every blue moon, we check for a deadlock here
 		//printf("check to see if we should run deadlock detection algorithm\n");
