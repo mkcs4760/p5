@@ -106,13 +106,13 @@ int main(int argc, char *argv[]) {
 	int startSecs, startNano, durationSecs, durationNano, endSecs, endNano; 
 	int terminate = 0;
 	
-	while (terminate != 2) {
+	while (terminate == 0) {
 		//wait a few seconds
 		//decide to either request or release some resources
 		//decide if we should terminate
 		//rinse and repeat
 		
-		durationSecs = randomNum(0, MAX_TIME_BETWEEN_RESOURCE_CHANGES_SECS);
+		durationSecs = 0;
 		durationNano = randomNum(0, MAX_TIME_BETWEEN_RESOURCE_CHANGES_NANO);
 		startSecs = sm->clockSecs;
 		startNano = sm->clockNano;
@@ -158,16 +158,19 @@ int main(int argc, char *argv[]) {
 				percent = 46; //set it up so we'll end up requesting instead
 			} else {
 				int ourPick = randomNum(1, numOurResources);
+				printf("CHILD this process currently has some of %d resources, so we've randomly decided to release some of the %dth resource\n", numOurResources, ourPick);
+				int counter = 0;
 				for (i = 0; i < RESOURCE_COUNT; i++) {
 					if (myResources[i] != 0) {
-						ourPick--;
-						if (ourPick == 0) {
+						counter++;
+						if (counter == ourPick) {
 							//we want to decrease this resource
 							ourPick = i;
 							//printf("CHILD: I want to release some of resource %d\n", ourPick);
 						}
 					}
 				}
+				printf("CHILD: That resource is resource #%d\n", ourPick);
 				//printf("CHILD: I currently have %d of resource #%d, and the total amount of that resource is %d\n", myResources[ourPick], ourPick, sm->resource[ourPick][0]);
 				//printf("test ends here...\n");
 				int giveAway = randomNum(1, myResources[ourPick]);
@@ -286,43 +289,6 @@ int main(int argc, char *argv[]) {
 					//if resources are not available, just display a message for now, idk...
 			}
 			
-			
-			
-			/*if (message.mesg_value == 1) {
-				//process wants to release resources
-			} else if (message.mesg_value == 2) {
-				//process wants to request resources
-				
-				//first we should find it in the PCT
-				for (i = 0; i < maxKidsAtATime; i++) {
-					if (PCT[i].myPID == message.return_address) {
-						//we have found the process that wants to make the request
-						//now we randomly pick the resource that it'll request
-						int res = randomNum(0, 19);
-						printf("We have a request for resource #%d\n", res);
-						printf("I currently have %d of that resource, and the max available is %d\n", PCT[i].myResource[res], sm->resource[res][0]);
-						if (PCT[i].myResource[res] < sm->resource[res][0]) { //if we have less then all of this resource...
-							//pick a random value from 1-n where n is the literal max it can request before it requested more then could possibly exist
-							int iWant = randomNum(1, sm->resource[res][0] - PCT[i].myResource[res]);
-							//decide if we can satisfy this request
-							if (sm->resource[res][0] - sm->resource[res][1] <= iWant) { //if we are requesting an amount less then or equal to what's available
-								//satisfy request
-								sm->resource[res][1] += iWant; //increment total allocated at table
-								//send message back confirming request
-							} else {
-								//you simply have to wait...
-							}
-						}
-					}
-				//then randomly pick which resource it wants
-					//if it has already maxed out on that resource, randomly choose another one
-				//pick a random value from 1-n where n is the literaly max it can request before it requested more then could possibly exist.
-				//update the resource table with these values,
-				//send a message back confirming that the request has gone through.
-					//if resources are not available, just display a message for now, idk...
-			}*/
-			
-			
 		}
 		//printf("CHILD: WARNING! POTENTIAL LEAK FOUND!!\n");
 		message.return_address = getpid();
@@ -351,17 +317,12 @@ int main(int argc, char *argv[]) {
 		printf("\n");
 		
 		
-		/*int percent = randomPercent();
+		//now we ask ourselves if it is time to terminate or not? We'll start with a 1% chance and see what that gives us
 		
-		if (percent < 46) {
-			//release a resource
-		} 
-		if (percent > 45) {
-			//request a resource
-		}*/
-		
-		terminate++;
-		//printf("CHILD: Terminate has been increased from %d to %d -------------------------------------- \n", terminate - 1, terminate);
+		if (randomNum(1, 100) == 1) {
+			printf("CHILD %d decides it's time to terminate\n", getpid());
+			terminate = 1;
+		}
 	}
 	
 	printf("CHILD: Ending child %d at %d:%d\n", getpid(), sm->clockSecs, sm->clockNano);
