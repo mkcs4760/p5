@@ -306,6 +306,11 @@ int main(int argc, char *argv[]) {
 			perror("CHILD: No message received\n");
 		}
 		// display the message 
+		if (message.mesg_type != getpid()) {
+			printf("ALERT!! ALERT!! This message was not meant for me. It's addressed to %d but I am %d\n", message.mesg_type, getpid());
+		} else {
+			printf("CHILD: I am %d, and I received a message addressed to %d. For the record, %d is my parent.\n", getpid(), message.mesg_type, getppid());
+		}
 		printf("CHILD: Data Received is : %s \n", message.mesg_text); 
 		
 		
@@ -319,7 +324,7 @@ int main(int argc, char *argv[]) {
 		
 		//now we ask ourselves if it is time to terminate or not? We'll start with a 1% chance and see what that gives us
 		
-		if (randomNum(1, 100) == 1) {
+		if (randomNum(1, 100) < 21) { //set to 21 percent for testing, though originally we though 1% ... DECIDE!!
 			printf("CHILD %d decides it's time to terminate\n", getpid());
 			terminate = 1;
 		}

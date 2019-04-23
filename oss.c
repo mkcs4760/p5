@@ -23,7 +23,7 @@
 
 struct PCB {
 	int myPID; //your local simulated pid
-	int myResource[2][20]; //[0] is what it has, [1] is what it wants
+	int myResource[2][RESOURCE_COUNT]; //[0] is what it has, [1] is what it wants
 };
 
 int randomNum(int min, int max) {
@@ -91,6 +91,8 @@ int main(int argc, char *argv[]) {
 	
 	//we need our process control table
 	struct PCB PCT[maxKidsAtATime]; //here we have a table of maxNum process blocks
+	struct PCB sPCT[maxKidsAtATime]; //simulated PCT used for deadlock detection
+	int sResource[3][RESOURCE_COUNT];
 	int p;
 	//function to set all starting values to 0 and print out all allocated resources
 	for (p = 0; p < maxKidsAtATime; p++) {
@@ -176,9 +178,10 @@ int main(int argc, char *argv[]) {
 	int makeChild = 1;
 	
 	while (terminate != 1) {
+		//printf("Start of while loop\n");
 		if (makeChild == 1) { //we need to make a child process
 		
-			//printf("Lets make a child process\n");
+			printf("Lets make a child process\n");
 			int openSlot = checkForOpenSlot(boolArray, maxKidsAtATime);
 			if (openSlot != -1) { //a return value of -1 means all slots are currently filled, and per instructions we are to ignore this process
 				//printf("Found empty slot in boolArray[%d]\n", openSlot);
@@ -248,7 +251,7 @@ int main(int argc, char *argv[]) {
 				}
 			}
 		}
-		 
+		//printf("increment clock\n"); 
 		sm->clockNano += CLOCK_INC; //increment clock
 		if (sm->clockNano >= 1000000000) { //increment the next unit
 			sm->clockSecs += 1;
@@ -256,6 +259,7 @@ int main(int argc, char *argv[]) {
 		}
 		
 		//we check if we've received a message from any of our processes
+		//printf("check if we've received something or not\n");
 		int receive;
 		receive = msgrcv(msqid, &message, sizeof(message), getpid(), IPC_NOWAIT); //will wait until is receives a message
 		if (receive > 0) {
@@ -375,25 +379,26 @@ int main(int argc, char *argv[]) {
 				}
 				
 			}
-			
-		
 		}
 		
+		//printf("check to see if any processes have ended\n");
 		//we check to see if any of our processes have ended
 		int temp = waitpid(-1, NULL, WNOHANG);
 		if (temp < 0) {
 			errorMessage(programName, "Unexpected result from terminating process ");
 		} else if (temp > 0) {
-			printf("Process %d confirmed to have ended at %d:%d\n", temp, sm->clockSecs, sm->clockNano);
+			printf("PARENT: Process %d confirmed to have ended at %d:%d\n", temp, sm->clockSecs, sm->clockNano); //SOMETIMES GET A SEGFAULT AFTER THIS...
 			//deallocate resources and continue
 			for (i = 0; i < maxKidsAtATime; i++) {
 				if (PCT[i].myPID == temp) {
 					boolArray[i] = false;
-					//printf("PARENT: Deallocating process %d from PCT\n", PCT[i].myPID);
+					printf("PARENT: Deallocating process %d from PCT\n", PCT[i].myPID);
 					PCT[i].myPID = 0; //remove PID value from this slot
-					for (j = 0; j < 20; j++) {
+					for (j = 0; j < RESOURCE_COUNT; j++) {
+						printf("C");
 						PCT[i].myResource[0][j] = 0; //reset each resource to zero
 					}
+					printf("\n");
 					break; //and for the moment, that's all we should need to deallocate
 				}
 			}
@@ -402,10 +407,74 @@ int main(int argc, char *argv[]) {
 		} //if temp == 0, nothing has ended and we simply carry on
 		
 		//once every blue moon, we check for a deadlock here
+		//printf("check to see if we should run deadlock detection algorithm\n");
 		if (sm->clockNano == 0) { //once a "second," perhaps
 			//began algorithm
-			printf("DEADLOCK DETECTION ALGORITHM\n");
-			//copy all data into "simulation" version of them. These we will manipulate withour destroying the system data
+			printf("DEADLOCK DETECTION ALGORITHM beginning\n");
+			//copy all data into "simulation" version of them. These we will manipulate without destroying the system data
+			
+				//struct PCB sPCT[maxKidsAtATime]; //simulated PCT used for deadlock detection
+				//int sResource[3][RESOURCE_COUNT];
+				
+			//so first step: copy all data into these two structures, then veryify that they're correct
+			
+			//function to print out all allocated resources
+			for (i = 0; i < maxKidsAtATime; i++) {
+				printf("PARENT: Copy over for deadlock. Before\nPARENT: Slot #%d, containing PID %d: \n", i, PCT[i].myPID);
+				for (j = 0; j < 20; j++) {
+					printf("%d ", PCT[i].myResource[0][j]);
+				}
+				printf("\n");
+			}			
+			
+			for (i = 0; i < maxKidsAtATime; i++) {
+				sPCT[i].myPID = PCT[i].myPID;
+				for (j = 0; j < RESOURCE_COUNT; j++) {
+					sPCT[i].myResource[0][j] = PCT[i].myResource[0][j];
+					sPCT[i].myResource[1][j] = PCT[i].myResource[1][j];
+				}
+			}
+			
+			//function to print out all allocated resources
+			for (i = 0; i < maxKidsAtATime; i++) {
+				printf("PARENT: Copy over for deadlock. Before\nPARENT: Slot #%d, containing PID %d: \n", i, sPCT[i].myPID);
+				for (j = 0; j < 20; j++) {
+					printf("%d ", sPCT[i].myResource[0][j]);
+				}
+				printf("\n");
+			}
+
+			//we'll see what happens when the data gets more complicated, but for now they seem the same.
+			
+			//now we have to copy over the actual resource table!!! All 3X20 of it!
+			printf("PARENT: Copy over for deadlock. Before\nPARENT: updated printout of our resource board\n");
+			for (i = 0; i < y; i++) {
+				for (j = 0; j < RESOURCE_COUNT; j++) {
+					printf("%d\t", sm->resource[j][i]);
+				}
+				printf("\n");
+			}			
+			
+			for (i = 0; i < RESOURCE_COUNT; i++) {
+				//printf("Saving %d is slot [%d][%d]\n", sm->resource[i][0], i, 0);
+				sResource[i][0] = sm->resource[i][0];
+				//printf("Saving %d is slot [%d][%d]\n", sm->resource[i][1], i, 1);
+				sResource[i][1] = sm->resource[i][1];
+				//printf("Saving %d is slot [%d][%d]\n", sm->resource[i][2], i, 2);
+				sResource[i][2] = sm->resource[i][2];
+			}
+			
+			//now we compare our new simulated resource table with the old one...
+			printf("PARENT: Simulated resource board\n"); //THIS IS ALL INCORRECT!!!!!!!!!!
+			for (i = 0; i < y; i++) {
+				for (j = 0; j < RESOURCE_COUNT; j++) {
+					printf("%d\t", sResource[j][i]);
+				}
+				printf(" aha\n");
+			}
+			printf("DEADLOCK DETECTION successful completion\n");
+			
+			
 			
 			//look at each process in order - see if you can give it the resources it wants
 				//if so, simulate releasing it's resources, and mark a flag saying a change was made
@@ -414,9 +483,11 @@ int main(int argc, char *argv[]) {
 				//if we've ended all processes, no deadlock exists. We're done and continue
 				//if we've gone once without making a change, deadlock exists. Kill off those children and release their resources. Then continue
 		}
+		//printf("time to restart the loop\n");
 	}
 
 	//print our resource board
+	printf("PARENT: End of all loops, printout our data before closing:\n");
 	for (i = 0; i < y; i++) {
 		for (j = 0; j < RESOURCE_COUNT; j++) {
 			printf("%d\t", sm->resource[j][i]);
@@ -437,17 +508,22 @@ int main(int argc, char *argv[]) {
 	printf("Successful end of program\n");
 	
 	//clean up resources
+	printf("clean up check 1\n");
 	int mqDestroy = msgctl(msqid, IPC_RMID, NULL); //destroy message queue
+	printf("clean up check 2\n");
 	int smDestroy = shmctl(shmid, IPC_RMID, NULL); //destroy shared memory
+	printf("clean up check 3\n");
 	if (mqDestroy == -1) {
 		perror(" Error with msgctl command: Could not remove message queue ");
 		exit(1);
 	}	
+	printf("clean up check 4\n");
 	if (smDestroy == -1) {
 		perror(" Error with shmctl command: Could not remove shared memory ");
 		exit(1);
 	}
-
+	printf("clean up check 5\n");
 	endAll(0);
+	printf("clean up check 6\n");
 	return 0;
 }
