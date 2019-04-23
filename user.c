@@ -24,12 +24,6 @@ void errorMessage(char programName[100], char errorString[100]){
 	exit(1);
 }
 
-//generates a random number between 1 and 3
-/*int randomNum(int max) {
-	int num = (rand() % (max + 1));
-	return num;
-}*/
-
 int randomNum(int min, int max) {
 	if (min == max) {
 		return min;
@@ -84,25 +78,6 @@ int main(int argc, char *argv[]) {
 		printf("Error, msqid equals %d\n", msqid);
 	}
 	
-	printf("CHILD: To prove we can, let's print the board here\n");
-	//print our resource board
-	
-	int y = 3;
-	for (i = 0; i < y; i++) {
-		for (j = 0; j < RESOURCE_COUNT; j++) {
-			printf("%d\t", sm->resource[j][i]);
-		}
-		printf("\n");
-	}
-	
-	//print out resources held by this process, for verification
-	printf("CHILD: Resources held by process %d\n", getpid());
-	int q;
-	for (q = 0; q < RESOURCE_COUNT; q++) {
-		printf("%d ", myResources[q]);
-	}
-	printf("\n");
-	
 	int startSecs, startNano, durationSecs, durationNano, endSecs, endNano; 
 	int terminate = 0;
 	
@@ -129,14 +104,6 @@ int main(int argc, char *argv[]) {
 		
 		printf("CHILD: We are done waiting since we could start at %d:%d and it is now %d:%d\n", endSecs, endNano, sm->clockSecs, sm->clockNano);
 		//now we want to request/release a resource. To do this we need a PCT
-		
-		//print out resources held by this process, for verification
-		printf("CHILD: Resources held by process %d\n", getpid());
-		int q;
-		for (q = 0; q < RESOURCE_COUNT; q++) {
-			printf("%d ", myResources[q]);
-		}
-		printf("\n");
 			
 		message.mesg_type = getppid(); 
 		strncpy(message.mesg_text, "child to parent", 100);
@@ -176,7 +143,6 @@ int main(int argc, char *argv[]) {
 				int giveAway = randomNum(1, myResources[ourPick]);
 				printf("CHILD: I want to give away %d of resource %d\n", giveAway, ourPick);
 				
-				
 				message.mesg_type = getppid();
 				message.request = false; //set to false if we were releasing resources
 				message.resID = ourPick;
@@ -203,35 +169,17 @@ int main(int argc, char *argv[]) {
 				myResources[ourPick] -= giveAway;
 				printf("CHILD: We are left with %d of resource #%d\n", myResources[ourPick], ourPick);
 				
-					
-				printf("CHILD: updated printout of our resource board\n");
-				for (i = 0; i < y; i++) {
-					for (j = 0; j < RESOURCE_COUNT; j++) {
-						printf("%d\t", sm->resource[j][i]);
-					}
-					printf("\n");
-				}
-
-			
-			}	
-			
+			}		
 		} 
 		if (percent > 45) {
 			//request a resource
 			message.mesg_value = 2; //2 signifies request
 			printf("CHILD: I want to request a resource\n");
-
-			//printf("CHILD check 1\n");
-
-			//printf("CHILD check 2\n");
 			bool validChoice = false;
 			while (validChoice == false) { //if you accidently randomly pick a resource you already have all of, just pick another
-				//printf("CHILD check 3\n");
 				//we have found the process that wants to make the request
 				//now we randomly pick the resource that it'll request
 				int res = randomNum(0, 19);
-				//printf("CHILD: We have a request for resource #%d\n", res);
-				//printf("CHILD: I currently have %d of that resource, and the max that exist is %d\n", myResources[res], sm->resource[res][0]);
 				if (myResources[res] < sm->resource[res][0]) { //if we have less then all of this resource...
 					//printf("CHILD check 4\n");
 					validChoice = true;
@@ -240,10 +188,7 @@ int main(int argc, char *argv[]) {
 					//printf("CHILD check 4.5\n");
 					bool complete = false;
 					while (complete == false) { //until I get the resources I want
-						//printf("CHILD check 5\n");
-						//satisfy request
-						//sm->resource[res][1] += iWant; //we want to increment total allocated at table, but we need oss to do that for us
-						//send message back confirming request
+
 						message.mesg_type = getppid();
 						message.request = true; //set to false if we were releasing resources
 						message.resID = res;
@@ -269,14 +214,6 @@ int main(int argc, char *argv[]) {
 							//printf("CHILD check 6\n");
 							printf("CHILD: We got %d more of resource %d. We got what we wanted!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n", iWant, res);
 							myResources[res] += iWant;
-							
-							printf("CHILD: updated printout of our resource board\n");
-							for (i = 0; i < y; i++) {
-								for (j = 0; j < RESOURCE_COUNT; j++) {
-									printf("%d\t", sm->resource[j][i]);
-								}
-								printf("\n");
-							}
 
 						} //else, we continue to request and request. If we can never get what we want, we will end up deadlocked
 					}
@@ -290,37 +227,6 @@ int main(int argc, char *argv[]) {
 			}
 			
 		}
-		//printf("CHILD: WARNING! POTENTIAL LEAK FOUND!!\n");
-		message.return_address = getpid();
-		// msgsnd to send message 
-		int send = msgsnd(msqid, &message, sizeof(message), 0);
-		if (send == -1) {
-			perror("CHILD: Error on msgsnd\n");
-		}
-		// display the message 
-		//printf("CHILD: Data send is : %s \n", message.mesg_text); 
-		printf("CHILD: Send3 - awaiting response...\n");
-		int receive;
-		receive = msgrcv(msqid, &message, sizeof(message), getpid(), 0); //will wait until is receives a message
-		if (receive < 0) {
-			perror("CHILD: No message received\n");
-		}
-		// display the message 
-		if (message.mesg_type != getpid()) {
-			printf("ALERT!! ALERT!! This message was not meant for me. It's addressed to %d but I am %d\n", message.mesg_type, getpid());
-		} else {
-			printf("CHILD: I am %d, and I received a message addressed to %d. For the record, %d is my parent.\n", getpid(), message.mesg_type, getppid());
-		}
-		printf("CHILD: Data Received is : %s \n", message.mesg_text); 
-		
-		
-		//print out resources held by this process, for verification
-		printf("CHILD: Resources held by process %d\n", getpid());
-		for (q = 0; q < 20; q++) {
-			printf("%d ", myResources[q]);
-		}
-		printf("\n");
-		
 		
 		//now we ask ourselves if it is time to terminate or not? We'll start with a 1% chance and see what that gives us
 		

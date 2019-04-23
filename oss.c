@@ -1,4 +1,3 @@
-//let's start by getting a program that'll fork children at random times
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -30,13 +29,6 @@ int randomNum(int min, int max) {
 	int num = (rand() % (max - min) + min);
 	return num;
 }
-
-/*
-int randomNum() {
-	int num = (rand() % (10) + 1);
-	return num;
-}
-*/
 
 //called whenever we terminate program
 void endAll(int error) {
@@ -123,22 +115,9 @@ int main(int argc, char *argv[]) {
         errorMessage(programName, "Function shmat failed. ");
     }
 	
-	//function to print out all allocated resources
-	for (p = 0; p < maxKidsAtATime; p++) {
-		printf("PARENT1: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
-		int q;
-		for (q = 0; q < 20; q++) {
-			printf("%d ", PCT[p].myResource[0][q]);
-		}
-		printf("\n");
-	}
-	
 	int msqid;
 	key_t mqKey; 
-    // ftok to generate unique key 
-    mqKey = 2931; //ftok("progfile", 65); 
-	//printf("We received a key value of %d\n", mqKey);
-    // msgget creates a message queue and returns identifier 
+    mqKey = 2931; 
     msqid = msgget(mqKey, 0666 | IPC_CREAT);  //create the message queue
 	if (msqid < 0) {
 		printf("Error, msqid equals %d\n", msqid);
@@ -184,16 +163,7 @@ int main(int argc, char *argv[]) {
 			printf("Lets make a child process\n");
 			int openSlot = checkForOpenSlot(boolArray, maxKidsAtATime);
 			if (openSlot != -1) { //a return value of -1 means all slots are currently filled, and per instructions we are to ignore this process
-				//printf("Found empty slot in boolArray[%d]\n", openSlot);
-				
-				printf("Another print out of our resource board right before we fork\n");
-				for (i = 0; i < y; i++) {
-					for (j = 0; j < RESOURCE_COUNT; j++) {
-						printf("%d\t", sm->resource[j][i]);
-					}
-					printf("\n");
-				}
-				
+
 				pid_t pid;
 				pid = fork();
 				
@@ -202,48 +172,19 @@ int main(int argc, char *argv[]) {
 					errorMessage(programName, "execl function failed. ");
 				}
 				else if (pid > 0) { //parent
-					
-					printf("Another print out of our resource board right after we fork\n");
-					for (i = 0; i < y; i++) {
-						for (j = 0; j < RESOURCE_COUNT; j++) {
-							printf("%d\t", sm->resource[j][i]);
-						}
-						printf("\n");
-					}
-					
 					makeChild = 0; //for now, we only want to create one child, for testing purposes
 					printf("PARENT: Created child %d at %d:%d\n", pid, sm->clockSecs, sm->clockNano);
 					boolArray[openSlot] = true; //claim that spot
 					//processesLaunched++; //these will be implemented later, so they remain here as a reminder
 					//processesRunning++;
 					//prepNewChild = false;
-					
-					//let's populate the control block with our data //NOTE: THIS STUFF CAUSED A PROBLEM. IT WAS REMOVED, BUT IT SHOULD BE REPLACED WITH SOMETHING THAT WORKS
-					//printf("Changing value %d to %d in PCT[%d]\n", PCT[openSlot].myPID, pid, openSlot);
 					PCT[openSlot].myPID = pid;
 					//printf("Lets set child %d to 0 resources for starting out\n", pid);
 					for (i = 0; i < RESOURCE_COUNT; i++) {
 						PCT[openSlot].myResource[0][i] = 0; //start out with having 0 of each resource
 					} //does the above hunk of code now work???
 					printf("Child %d is ready to roll\n", pid);
-					printf("Another print out of our resource board at very end of fork section\n");
-					for (i = 0; i < y; i++) {
-						for (j = 0; j < RESOURCE_COUNT; j++) {
-							printf("%d\t", sm->resource[j][i]);
-						}
-						printf("\n");
-					}
-					
-					int p;
-					//function to print out all allocated resources
-					for (p = 0; p < maxKidsAtATime; p++) {
-						printf("PARENT2: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
-						int q;
-						for (q = 0; q < 20; q++) {
-							printf("%d ", PCT[p].myResource[0][q]);
-						}
-						printf("\n");
-					}
+
 					continue;
 				}
 				else {
@@ -272,11 +213,6 @@ int main(int argc, char *argv[]) {
 				message.mesg_type = message.return_address; //send it to the process that just sent you something
 				strncpy(message.mesg_text, "parent to child", 100);
 				
-				//at first, we set it up to randomly decide if it should accept or reject a request
-				//in the final code, however, we want to accept if the resources are available, and reject otherwise.
-				
-				//printf("PARENT: If my systems are correct, there are %d available of that resource\n", sm->resource[message.resID][1]);
-				
 				if (message.resAmount <= sm->resource[message.resID][1]) { //if we are requesting a value less then or equal to that which is available
 					message.mesg_value = 10; //accept request
 					printf("PARENT: Looks like we can accept this request\n");
@@ -288,27 +224,6 @@ int main(int argc, char *argv[]) {
 							PCT[i].myResource[1][message.resID] = 0; //we just got some of this resource, so set our desired amount to 0. Quick to just set it then check if it has been set or not
 							//printf("Decreasing value %d...\n", sm->resource[message.resID][1]);
 							sm->resource[message.resID][1] -= message.resAmount; //these parameters may possibly be in the wrong order..........
-							//printf("PARENT: Process %d got what it wanted!!!!!!!!!!!!!!!\n", PCT[i].myPID);
-							//now let's print out the updated board
-							//print our resource board
-							printf("PARENT: updated printout of our resource board\n");
-							for (i = 0; i < y; i++) {
-								for (j = 0; j < RESOURCE_COUNT; j++) {
-									printf("%d\t", sm->resource[j][i]);
-								}
-								printf("\n");
-							}
-							
-							
-							//function to print out all allocated resources
-							for (p = 0; p < maxKidsAtATime; p++) {
-								printf("PARENT3: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
-								int q;
-								for (q = 0; q < 20; q++) {
-									printf("%d ", PCT[p].myResource[0][q]);
-								}
-								printf("\n");
-							}
 						}
 					}
 				} else {
@@ -334,37 +249,13 @@ int main(int argc, char *argv[]) {
 				printf("Process %d is releasing %d of resource %d\n", message.return_address, message.resAmount, message.resID);
 				
 				for (i = 0; i < maxKidsAtATime; i++) {
-					//printf("PARENT check 0\n");
-					//printf("Let's compare %d and %d\n", PCT[i].myPID, message.return_address);
+
 					if (PCT[i].myPID == message.return_address) {
 						//printf("PARENT check 1\n");
 						//this is the slot we want to deallocate resources to
 						PCT[i].myResource[0][message.resID] -= message.resAmount; //we just deallocated a resource
 						sm->resource[message.resID][1] += message.resAmount; //just moved resources from allocation in PCT to free in resource table
-						//printf("PARENT: Process %d successfully released resources\n", message.return_address);
-							
-						//now let's print out the updated board
-						//print our resource board
-						printf("PARENT: updated printout of our resource board\n");
-						for (i = 0; i < y; i++) {
-							for (j = 0; j < RESOURCE_COUNT; j++) {
-								printf("%d\t", sm->resource[j][i]);
-							}
-							printf("\n");
-						}
-							
-						//printf("PARENT check 2\n");	
-						//function to print out all allocated resources
-						for (p = 0; p < maxKidsAtATime; p++) {
-							printf("PARENT4: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
-							int q;
-							for (q = 0; q < 20; q++) {
-								printf("%d ", PCT[p].myResource[0][q]);
-							}
-							printf("\n");
-						}
-						//printf("PARENT check 3\n");
-						//printf("PARENT: Sending message back to process %d to let them know we released their resources\n", message.return_address);
+
 						message.mesg_type = message.return_address;
 						message.return_address = getpid();
 						int send = msgsnd(msqid, &message, sizeof(message), 0); //send message
@@ -374,10 +265,7 @@ int main(int argc, char *argv[]) {
 						//printf("Data sent is : %s \n", message.mesg_text); // display the messag
 						//printf("PARENT check 4\n");
 					}
-
-				
 				}
-				
 			}
 		}
 		
@@ -389,9 +277,14 @@ int main(int argc, char *argv[]) {
 		} else if (temp > 0) {
 			printf("PARENT: Process %d confirmed to have ended at %d:%d\n", temp, sm->clockSecs, sm->clockNano); //SOMETIMES GET A SEGFAULT AFTER THIS...
 			//deallocate resources and continue
+			printf("PARENT: ending process checkpoint 1\n");
 			for (i = 0; i < maxKidsAtATime; i++) {
+				printf("PARENT: ending process checkpoint 2\n");
 				if (PCT[i].myPID == temp) {
-					boolArray[i] = false;
+					printf("PARENT: ending process checkpoint 3\n");
+					printf("Currently, i = %d\n", i); //i is the correct value and makes no difference as to whehter or not the next line crashes
+					printf("boolArray[%d] currently equals %d\n", i, boolArray[i]);
+					boolArray[i] = false; //this line is causing a seg fault...
 					printf("PARENT: Deallocating process %d from PCT\n", PCT[i].myPID);
 					PCT[i].myPID = 0; //remove PID value from this slot
 					for (j = 0; j < RESOURCE_COUNT; j++) {
@@ -402,8 +295,10 @@ int main(int argc, char *argv[]) {
 					break; //and for the moment, that's all we should need to deallocate
 				}
 			}
+			printf("PARENT: ending process checkpoint 4\n");
 			//processesRunning--;
 			terminate = 1;
+			printf("PARENT: ending process checkpoint 5\n");
 		} //if temp == 0, nothing has ended and we simply carry on
 		
 		//once every blue moon, we check for a deadlock here
@@ -416,16 +311,7 @@ int main(int argc, char *argv[]) {
 				//struct PCB sPCT[maxKidsAtATime]; //simulated PCT used for deadlock detection
 				//int sResource[3][RESOURCE_COUNT];
 				
-			//so first step: copy all data into these two structures, then veryify that they're correct
-			
-			//function to print out all allocated resources
-			for (i = 0; i < maxKidsAtATime; i++) {
-				printf("PARENT: Copy over for deadlock. Before\nPARENT: Slot #%d, containing PID %d: \n", i, PCT[i].myPID);
-				for (j = 0; j < 20; j++) {
-					printf("%d ", PCT[i].myResource[0][j]);
-				}
-				printf("\n");
-			}			
+			//so first step: copy all data into these two structures, then veryify that they're correct	
 			
 			for (i = 0; i < maxKidsAtATime; i++) {
 				sPCT[i].myPID = PCT[i].myPID;
@@ -434,26 +320,7 @@ int main(int argc, char *argv[]) {
 					sPCT[i].myResource[1][j] = PCT[i].myResource[1][j];
 				}
 			}
-			
-			//function to print out all allocated resources
-			for (i = 0; i < maxKidsAtATime; i++) {
-				printf("PARENT: Copy over for deadlock. Before\nPARENT: Slot #%d, containing PID %d: \n", i, sPCT[i].myPID);
-				for (j = 0; j < 20; j++) {
-					printf("%d ", sPCT[i].myResource[0][j]);
-				}
-				printf("\n");
-			}
-
-			//we'll see what happens when the data gets more complicated, but for now they seem the same.
-			
-			//now we have to copy over the actual resource table!!! All 3X20 of it!
-			printf("PARENT: Copy over for deadlock. Before\nPARENT: updated printout of our resource board\n");
-			for (i = 0; i < y; i++) {
-				for (j = 0; j < RESOURCE_COUNT; j++) {
-					printf("%d\t", sm->resource[j][i]);
-				}
-				printf("\n");
-			}			
+				
 			
 			for (i = 0; i < RESOURCE_COUNT; i++) {
 				//printf("Saving %d is slot [%d][%d]\n", sm->resource[i][0], i, 0);
@@ -464,14 +331,6 @@ int main(int argc, char *argv[]) {
 				sResource[i][2] = sm->resource[i][2];
 			}
 			
-			//now we compare our new simulated resource table with the old one...
-			printf("PARENT: Simulated resource board\n"); //THIS IS ALL INCORRECT!!!!!!!!!!
-			for (i = 0; i < y; i++) {
-				for (j = 0; j < RESOURCE_COUNT; j++) {
-					printf("%d\t", sResource[j][i]);
-				}
-				printf(" aha\n");
-			}
 			printf("DEADLOCK DETECTION successful completion\n");
 			
 			
