@@ -132,7 +132,7 @@ int main(int argc, char *argv[]) {
 						if (counter == ourPick) {
 							//we want to decrease this resource
 							ourPick = i;
-							printf("CHILD: Process %d want to release some of resource %d\n", getpid(), ourPick);
+							//printf("CHILD: Process %d want to release some of resource %d\n", getpid(), ourPick);
 						}
 					}
 				}
@@ -193,7 +193,7 @@ int main(int argc, char *argv[]) {
 						message.resID = res;
 						message.resAmount = iWant;
 						message.return_address = getpid();
-						printf("CHILD: process %d requests %d of resource %d\n", getpid(), iWant, res);
+						//printf("CHILD: process %d requests %d of resource %d\n", getpid(), iWant, res);
 						int send = msgsnd(msqid, &message, sizeof(message), 0);
 						if (send == -1) {
 							perror("Error on msgsnd\n");

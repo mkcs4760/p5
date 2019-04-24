@@ -93,6 +93,7 @@ int main(int argc, char *argv[]) {
 		int q;
 		for (q = 0; q < 20; q++) {
 			PCT[p].myResource[0][q] = 0;
+			PCT[p].myResource[1][q] = 0;
 			printf("%d ", PCT[p].myResource[0][q]);
 		}
 		printf("\n");
@@ -223,23 +224,16 @@ int main(int argc, char *argv[]) {
 				message.mesg_type = message.return_address; //send it to the process that just sent you something
 				strncpy(message.mesg_text, "parent to child", 100);
 				
-				if ((message.resAmount <= sm->resource[message.resID][1]) || (sm->resource[message.resID][2] == 1)) { //if we are requesting a value less then or equal to that which is available
+				if (message.resAmount <= sm->resource[message.resID][1]) { //if we are requesting a value less then or equal to that which is available
 					message.mesg_value = 10; //accept request
-					if (sm->resource[message.resID][2] == 1) {
-						printf("PARENT: Looks like we can accept this request, as %d is a sharable resource\n", message.resID);
-					} else {
-						printf("PARENT: Looks like we can accept this request, as there are %d available of resource %d\n", sm->resource[message.resID][1], message.resID);
-					}
-					
+					printf("PARENT: Looks like we can accept this request\n");
 					
 					for (i = 0; i < maxKidsAtATime; i++) {
 						if (PCT[i].myPID == message.return_address) {
 							//this is the slot we want to allocate resources to
 							PCT[i].myResource[0][message.resID] += message.resAmount; //we just allocated a resource
 							PCT[i].myResource[1][message.resID] = 0; //we just got some of this resource, so set our desired amount to 0. Quick to just set it then check if it has been set or not
-							if (sm->resource[message.resID][2] == 0) { //only deallocate if it is not sharable
-								sm->resource[message.resID][1] -= message.resAmount; //these parameters may possibly be in the wrong order..........
-							}
+							sm->resource[message.resID][1] -= message.resAmount; //these parameters may possibly be in the wrong order..........
 						}
 					}
 					
@@ -282,9 +276,8 @@ int main(int argc, char *argv[]) {
 						//printf("PARENT check 1\n");
 						//this is the slot we want to deallocate resources to
 						PCT[i].myResource[0][message.resID] -= message.resAmount; //we just deallocated a resource
-						if (sm->resource[message.resID][2] == 0) { //only deallocate if it is not sharable
-							sm->resource[message.resID][1] += message.resAmount; //just moved resources from allocation in PCT to free in resource table
-						}
+						sm->resource[message.resID][1] += message.resAmount; //just moved resources from allocation in PCT to free in resource table
+
 						message.mesg_type = message.return_address;
 						message.return_address = getpid();
 						int send = msgsnd(msqid, &message, sizeof(message), 0); //send message
@@ -334,11 +327,13 @@ int main(int argc, char *argv[]) {
 		//check to see if any processes can be unblocked thanks to more resources
 		for (i = 0; i < maxKidsAtATime; i++) {
 			for (j = 0; j < RESOURCE_COUNT; j++) {
-				if (PCT[i].myResource[i][j] > 0) { //if so, we are waiting on this amount of resource j
+				if (PCT[i].myResource[1][j] > 0) { //if so, we are waiting on this amount of resource j
 					//check if this resource is now available...
-					if (sm->resource[1][j] >= PCT[i].myResource[i][j]) {
+					//printf("Looks like process %d is waiting for %d of resource %d\n", PCT[i].myPID, PCT[i].myResource[1][j], j);	
+					if (PCT[i].myResource[1][j] <= sm->resource[1][j]) {
 						//we can allocate these resources and release this process
-						//printf("We made it here because PCT[i].myResource[i][j] equals %d, and that is less then sm->resource[1][j], which equals %d\n",PCT[i].myResource[i][j], sm->resource[1][j]);
+						//printf("We made it here because PCT[i].myResource[1][j] equals %d, and that is less then sm->resource[1][j], which equals %d\n",PCT[i].myResource[1][j], sm->resource[1][j]);
+						printf("We are here because %d <= %d...\n", PCT[i].myResource[1][j], sm->resource[1][j]);
 						
 						message.mesg_type = PCT[i].myPID;
 						message.mesg_value = 10; //accept request
@@ -360,6 +355,21 @@ int main(int argc, char *argv[]) {
 							perror("Error on msgsnd\n");
 						}
 						
+						sleep(3);
+						
+						printf("At present, this is what our PCT looks like:\n");
+						for (p = 0; p < maxKidsAtATime; p++) {
+							printf("PARENT: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
+							int q;
+							for (q = 0; q < 20; q++) {
+								printf("%d ", PCT[p].myResource[0][q]);
+							}
+							printf("\n");
+						}
+						kill(-1*getpid(), SIGKILL);	//just for TESTING ONLY!!!
+						
+					} else {
+						//printf("But this clearly isn't true, since sm->resource[1][j] equals %d and that is less then PCT[i].myResource[1][j], which is %d\n", sm->resource[1][j], PCT[i].myResource[1][j]);
 					}
 					
 					
@@ -388,6 +398,26 @@ int main(int argc, char *argv[]) {
 				}
 				printf("\n");
 			}
+			
+			//I suppose a first step would be to detect here if anyone was waiting for anything in particular
+			int testingOnly = 0;
+			for (i = 0; i < maxKidsAtATime; i++) {
+				for (j = 0; j < RESOURCE_COUNT; j++) {
+					if (PCT[i].myResource[1][j] > 0) { //if so, we are waiting on this amount of resource j
+						//check if this resource is now available...
+						printf("Looks like process %d is waiting for %d of resource %d\n", PCT[i].myPID, PCT[i].myResource[1][j], j);
+						testingOnly++;
+					}
+				}
+			}
+			
+			//the above appears to work in the sense that it'll tell me what is waiting for what, though right now, it just prints it...
+			if (testingOnly >= maxKidsAtATime) {
+				printf("All our processes are waiting. Ending program\n");
+				kill(-1*getpid(), SIGKILL);	//just for TESTING ONLY!!!
+			}
+			
+			
 			
 			/*sprintf("DEADLOCK DETECTION ALGORITHM beginning\n");
 			//copy all data into "simulation" version of them. These we will manipulate without destroying the system data
