@@ -83,8 +83,6 @@ int main(int argc, char *argv[]) {
 	
 	//we need our process control table
 	struct PCB PCT[maxKidsAtATime]; //here we have a table of maxNum process blocks
-	//struct PCB sPCT[maxKidsAtATime]; //simulated PCT used for deadlock detection
-	//int sResource[3][RESOURCE_COUNT];
 	int p;
 	//function to set all starting values to 0 and print out all allocated resources
 	for (p = 0; p < maxKidsAtATime; p++) {
@@ -256,17 +254,7 @@ int main(int argc, char *argv[]) {
 						}
 					}
 					//don't send a message back, so we don't unpause it
-					//kill(-1*getpid(), SIGKILL);	//just for TESTING ONLY!!!
-					
-					
-					
-					//MORE NEEDS TO GO HERE
-					//right now, the process needs to go into a blocked queue, and wait for its resource to become available.
-					//Once it's available, it needs to be claimed and a message sent back to unapuse the child
-					
-				}
-
-				//printf("Data sent is : %s \n", message.mesg_text); // display the message 	
+				}	
 			
 				
 			} else { //we're releasing a resource
@@ -275,7 +263,6 @@ int main(int argc, char *argv[]) {
 				for (i = 0; i < maxKidsAtATime; i++) {
 
 					if (PCT[i].myPID == message.return_address) {
-						//printf("PARENT check 1\n");
 						//this is the slot we want to deallocate resources to
 						PCT[i].myResource[0][message.resID] -= message.resAmount; //we just deallocated a resource
 						sm->resource[message.resID][1] += message.resAmount; //just moved resources from allocation in PCT to free in resource table
@@ -286,8 +273,6 @@ int main(int argc, char *argv[]) {
 						if (send == -1) {
 							perror("Error on msgsnd\n");
 						}
-						//printf("Data sent is : %s \n", message.mesg_text); // display the messag
-						//printf("PARENT check 4\n");
 					}
 				}
 			}
@@ -305,10 +290,6 @@ int main(int argc, char *argv[]) {
 			for (i = 0; i < maxKidsAtATime; i++) {
 				//printf("PARENT: ending process checkpoint 2\n");
 				if (PCT[i].myPID == temp) {
-					//printf("PARENT: ending process checkpoint 3\n");
-					//printf("Currently, i = %d\n", i); //i is the correct value and makes no difference as to whehter or not the next line crashes
-					//printf("boolArray[%d] currently equals %d\n", i, boolArray[i]);
-					//boolArray[i] = false; //this line is causing a seg fault...
 					printf("PARENT: Deallocating process %d from PCT++++++++++++++++++++++++++++++++++++++++\n", PCT[i].myPID);
 					PCT[i].myPID = 0; //remove PID value from this slot
 					for (j = 0; j < RESOURCE_COUNT; j++) {
@@ -321,16 +302,11 @@ int main(int argc, char *argv[]) {
 					break; //and for the moment, that's all we should need to deallocate
 				}
 			}
-			//printf("PARENT: ending process checkpoint 4\n");
 			processesRunning--;
-			if (processesLaunched > 2 && processesRunning == 0) { //let's see if this works
+			/*if (processesLaunched > 2 && processesRunning == 0) { //let's see if this works
 				terminate = 1;
-			}
-			//printf("PARENT: ending process checkpoint 5\n");
+			}*/
 		} //if temp == 0, nothing has ended and we simply carry on
-		
-		
-		
 		
 		//check to see if any processes can be unblocked thanks to more resources
 		for (i = 0; i < maxKidsAtATime; i++) {
@@ -346,12 +322,6 @@ int main(int argc, char *argv[]) {
 						message.mesg_value = 10; //accept request
 						printf("PARENT: Looks like we can finally give %d it's %d shares of %d$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n", PCT[i].myPID, PCT[i].myResource[1][j], j);
 						
-						//we already have the loops above.
-						//Our process is PCT[i].myPID
-						//j is the resource that our process wants
-						//PCT[i].myResource[i][j] is the amount of that resource it wants
-						
-						//this should work...
 						printf("So since we had %d, and we want %d more, we should now have %d\n", PCT[i].myResource[0][j], PCT[i].myResource[1][j], PCT[i].myResource[0][j] + PCT[i].myResource[1][j]);
 						PCT[i].myResource[0][j] += PCT[i].myResource[1][j];
 						PCT[i].myResource[1][j] = 0;
@@ -363,25 +333,6 @@ int main(int argc, char *argv[]) {
 						if (send == -1) {
 							perror("Error on msgsnd\n");
 						}
-						
-						
-						/*for (i = 0; i < maxKidsAtATime; i++) {
-							if (PCT[i].myPID == message.return_address) {
-								//this is the slot we want to allocate resources to
-								printf("Updated PCT table PCT[%d].myResources[0][%d] from %d to %d\n", i, message.resID, PCT[i].myResource[0][message.resID], PCT[i].myResource[0][message.resID] + message.resAmount);
-								PCT[i].myResource[0][message.resID] += message.resAmount; //we just allocated a resource
-								PCT[i].myResource[1][message.resID] = 0; //we just got some of this resource, so set our desired amount to 0. Quick to just set it then check if it has been set or not
-								sm->resource[message.resID][1] -= message.resAmount; //these parameters may possibly be in the wrong order..........
-							}
-						}
-						
-						message.return_address = getpid();
-						int send = msgsnd(msqid, &message, sizeof(message), 0); //send message
-						if (send == -1) {
-							perror("Error on msgsnd\n");
-						}*/
-						
-						//sleep(3);
 						
 						int k, l;
 						printf("Another printout of our resource board\n"); //THIS WHOLE SECTION IS IN A TESTING PHASE
@@ -406,10 +357,7 @@ int main(int argc, char *argv[]) {
 					} else {
 						//printf("But this clearly isn't true, since sm->resource[1][j] equals %d and that is less then PCT[i].myResource[1][j], which is %d\n", sm->resource[1][j], PCT[i].myResource[1][j]);
 					}
-					
-					
 				}
-			
 			}
 		
 			if (PCT[i].myPID == message.return_address) {
@@ -421,11 +369,6 @@ int main(int argc, char *argv[]) {
 		//once every blue moon, we check for a deadlock here
 		//printf("check to see if we should run deadlock detection algorithm\n");
 		if (sm->clockNano == 0) { //once a "second," perhaps
-			//began algorithm
-			printf("\tDEADLOCK DETECTION ALGORITHM ...\n");
-			
-			
-			
 			printf("At present, this is what our PCT looks like:\n");
 			for (p = 0; p < maxKidsAtATime; p++) {
 				printf("PARENT: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
@@ -460,7 +403,7 @@ int main(int argc, char *argv[]) {
 			printf("We found %d processes waiting\n", numWaiting);
 			printf("numWaitHold, however, things there are %d\n", numWaitHold);
 			if (numWaitHold > 1) {//one process cannot deadlock itself. We must have at least 2
-				printf("DLC 1\n");
+
 				printf("We still believe in %d processes waiting\n", numWaiting);
 				int simRes[y][RESOURCE_COUNT];
 				printf("DLC 1.5\n");
@@ -473,7 +416,7 @@ int main(int argc, char *argv[]) {
 					}
 					//printf("checkpoint\n");
 				}
-				printf("DLC 2\n");
+
 				printf("We still believe in %d processes waiting\n", numWaiting);
 				printf("numWaitHold, however, things there are %d\n", numWaitHold);
 				int k, l;
@@ -485,7 +428,6 @@ int main(int argc, char *argv[]) {
 					printf("\n");
 				}
 				
-				printf("DLC 3\n");
 				printf("We still believe in %d processes waiting\n", numWaiting);
 				int waitingProcesses[numWaitHold]; //create temporary array to store our waiting PIDs
 				int counter = 0;
@@ -502,7 +444,6 @@ int main(int argc, char *argv[]) {
 						}
 					}
 				}
-				printf("DLC 4\n");
 				printf("We still believe in %d processes waiting\n", numWaiting);
 				for (i = 0; i < maxKidsAtATime; i++) { //the exact same loop, but this time we save PIDs. Loop one for each process
 					bool isBlocked = false;
@@ -524,32 +465,7 @@ int main(int argc, char *argv[]) {
 						}
 					}
 				}				
-				printf("DLC 5\n");
-				
-				///////////////
-				//printf("PARENT: Process %d is releasing %d of resource %d\n", message.return_address, message.resAmount, message.resID);
-				
-				/*for (i = 0; i < maxKidsAtATime; i++) {
 
-					if (PCT[i].myPID == message.return_address) {
-						//printf("PARENT check 1\n");
-						//this is the slot we want to deallocate resources to
-						PCT[i].myResource[0][message.resID] -= message.resAmount; //we just deallocated a resource
-						sm->resource[message.resID][1] += message.resAmount; //just moved resources from allocation in PCT to free in resource table
-
-						message.mesg_type = message.return_address;
-						message.return_address = getpid();
-						int send = msgsnd(msqid, &message, sizeof(message), 0); //send message
-						if (send == -1) {
-							perror("Error on msgsnd\n");
-						}
-						//printf("Data sent is : %s \n", message.mesg_text); // display the messag
-						//printf("PARENT check 4\n");
-					}				
-				}*/
-				
-				////////////////
-				printf("DLC 6\n");
 				printf("Lets verify that PCT looks the same:\n");
 				for (i = 0; i < 2; i++) {
 					for (j = 0; j < RESOURCE_COUNT; j++) {
@@ -558,13 +474,11 @@ int main(int argc, char *argv[]) {
 					printf("\n");
 				}
 				
-				printf("DLC 7\n");
 				printf("The following are the %d processes that are waiting: ", numWaitHold);
 				for (i = 0; i < numWaitHold; i++) {
 					printf("%d ", waitingProcesses[i]);
 				}
 				printf("\n");
-				printf("DLC 8\n");
 				
 				
 				//now that all nonblocked processes have simulated releasing their resources, we enter a loop
@@ -608,71 +522,54 @@ int main(int argc, char *argv[]) {
 									}
 									printf("We made it here\n"); 
 								}
-								
-								
 							}
 						}
 					}
 					if (numStillHold == 0) {
 						//we've escaped - there's no deadlock
-						printf("THERE IS NO DEADLOCK!!!\n");
 						result = 1;
 						
-					}else if (change == false) {
+					} else if (change == false) {
 						//we have a deadlock on all remaining processes!!
+						printf("We have a deadlock!\n");
 						result = 2;
-						printf("WE HAVE A DEADLOCK!!!\n");
 						//kill them and give away their resources.
-						
+						//This hunk of code does not properly kill off only the deadlocked processes
+						//but we have previously correctly identified them, so it should be simple
+						//Unfortunatly, with variables seemingly being unreliable due to changing values,
+						//this does not usually result in the correct output
+						/*for (q = 0; q < numWaitHold; q++) {
+							int j2;
+							for (j2 = 0; j2 < RESOURCE_COUNT; j2++) {
+								if (PCT[i].myResource[1][j2] == 0) {
+									//simulate releasing this resource in simRes[j][i]
+									printf("Process %d is not waiting on resource %d, so we simulate releasing all %d of its instances of resource %d\n", PCT[i].myPID, j, PCT[i].myResource[0][j], j); //can't really test this till we have 3 processes...
+									simRes[j2][0] += PCT[i].myResource[0][j2]; //add the current amount of the resource allocated to resouce available in the simulation
+								}
+							}
+						}	
+						for (i = 0; i < maxKidsAtATime; i++) {
+							for (q = 0; 1 < numWaitHold; q++) {
+								if (PCT[i].myPID == waitingProcesses[q]) { //if this is a resource we need to kill off
+									int deadlockPID = PCT[i].myPID;
+									PCT[i].myPID = 0; //remove PID value from this slot
+									for (j = 0; j < RESOURCE_COUNT; j++) {
+										//add each resource back before destroying it
+										sm->resource[j][1] += PCT[i].myResource[0][j];
+										PCT[i].myResource[0][j] = 0; //reset each resource to zero
+									}
+									printf("Terminating deadlocked child %d\n", deadlockPID);
+									kill(deadlockPID, SIGKILL);
+									
+								}
+								
+							}
+
+						}*/
 						//then properly end program
 					} 
 				}
-				
-				
-				
-				/*printf("Now lets simulate releasing resources of all other processes");
-				
-				for (i = 0; i < maxKidsAtATime; i++) {
-					if
-				}*/
-				
-				
-
-
-				
-				/*		
-						
-						if (i == 0) {
-							sm->resource[j][i] = randomNum(1, 10); //set the maximum number of this resource available to the system. These numbers do not change
-						} else if ( i == 1) {
-							sm->resource[j][i] = sm->resource[j][0]; //set the current number of available instances of this resource. This number does change
-						} else {
-							if (randomNum(1, 10) < 3) {
-								sm->resource[j][i] = 1; //mark this resource as a sharable resource
-							} else {
-								sm->resource[j][i] = 0; //mark this resource as a nonsharable resource
-							}
-						}
-					}
-				}				
-				*/
-				
-				/*
-				
-						PCT[i].myResource[0][message.resID] -= message.resAmount; //we just deallocated a resource
-						sm->resource[message.resID][1] += message.resAmount; //just moved resources from allocation in PCT to free in resource table
-
-						message.mesg_type = message.return_address;
-						message.return_address = getpid();
-						int send = msgsnd(msqid, &message, sizeof(message), 0); //send message
-						if (send == -1) {
-							perror("Error on msgsnd\n");
-						}
-				*/
-				
-				printf("DLC 9\n");
-				printf("That's as far as this test goes. Did it work\n");
-				kill(-1*getpid(), SIGKILL);	//just for TESTING ONLY!!!
+				terminate = 1;
 			}
 			
 			//look at each process in order - see if you can give it the resources it wants
@@ -698,5 +595,6 @@ int main(int argc, char *argv[]) {
 	}
 	endAll(0);
 	printf("Successful end of program\n");
+	kill(-1*getpid(), SIGKILL);	//because the program is not complete, this is what I had to do...
 	return 0;
 }
