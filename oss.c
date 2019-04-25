@@ -194,6 +194,7 @@ int main(int argc, char *argv[]) {
 						//printf("Lets set child %d to 0 resources for starting out\n", pid);
 						for (i = 0; i < RESOURCE_COUNT; i++) {
 							PCT[openSlot].myResource[0][i] = 0; //start out with having 0 of each resource
+							PCT[openSlot].myResource[1][i] = 0; //also starting our wanting 0 of each resource
 						} //does the above hunk of code now work???
 						continue;
 					}
@@ -308,10 +309,13 @@ int main(int argc, char *argv[]) {
 					//printf("Currently, i = %d\n", i); //i is the correct value and makes no difference as to whehter or not the next line crashes
 					//printf("boolArray[%d] currently equals %d\n", i, boolArray[i]);
 					//boolArray[i] = false; //this line is causing a seg fault...
-					printf("PARENT: Deallocating process %d from PCT\n", PCT[i].myPID);
+					printf("PARENT: Deallocating process %d from PCT++++++++++++++++++++++++++++++++++++++++\n", PCT[i].myPID);
 					PCT[i].myPID = 0; //remove PID value from this slot
 					for (j = 0; j < RESOURCE_COUNT; j++) {
+						//add each resource back before destroying it
+						sm->resource[j][1] += PCT[i].myResource[0][j];
 						PCT[i].myResource[0][j] = 0; //reset each resource to zero
+						
 					}
 					printf("\n");
 					break; //and for the moment, that's all we should need to deallocate
@@ -351,7 +355,7 @@ int main(int argc, char *argv[]) {
 						printf("So since we had %d, and we want %d more, we should now have %d\n", PCT[i].myResource[0][j], PCT[i].myResource[1][j], PCT[i].myResource[0][j] + PCT[i].myResource[1][j]);
 						PCT[i].myResource[0][j] += PCT[i].myResource[1][j];
 						PCT[i].myResource[1][j] = 0;
-						printf("But that means that while we used to have %d available, we now only have %d/n", sm->resource[j][1], sm->resource[j][1] - PCT[i].myResource[1][j]);
+						printf("But that means that while we used to have %d available, we now only have %d\n", sm->resource[j][1], sm->resource[j][1] - PCT[i].myResource[1][j]);
 						sm->resource[j][1] -= PCT[i].myResource[1][j];
 						
 						message.return_address = getpid();
@@ -452,43 +456,62 @@ int main(int argc, char *argv[]) {
 					}
 				}
 			}
-			if (numWaiting > 1) {//one process cannot deadlock itself. We must have at least 2
-				
-				int simRes[3][20];
-				
-				for (i = 0; i < y; i++) {
+			int numWaitHold = numWaiting;
+			printf("We found %d processes waiting\n", numWaiting);
+			printf("numWaitHold, however, things there are %d\n", numWaitHold);
+			if (numWaitHold > 1) {//one process cannot deadlock itself. We must have at least 2
+				printf("DLC 1\n");
+				printf("We still believe in %d processes waiting\n", numWaiting);
+				int simRes[y][RESOURCE_COUNT];
+				printf("DLC 1.5\n");
+				printf("We still believe in %d processes waiting\n", numWaiting);
+				for (i = 0; i < 2; i++) { //hard code 2 in for now, since sharable isn't important right now
 					for (j = 0; j < RESOURCE_COUNT; j++) {
 						simRes[j][i] = sm->resource[j][i];
-					}	
+						printf("Just saved %d into simRes[%d][%d]\n", sm->resource[j][i], j, i);
+						//printf("At [%d][%d] We still believe in %d processes waiting\n", i, j, numWaiting);
+					}
+					//printf("checkpoint\n");
 				}
+				printf("DLC 2\n");
+				printf("We still believe in %d processes waiting\n", numWaiting);
+				printf("numWaitHold, however, things there are %d\n", numWaitHold);
 				int k, l;
 				printf("Here is our simulated resource board\n"); //FOR TESTING!!! appears to be copied successfully
-				for (k = 0; k < y; k++) {
+				for (k = 0; k < 2; k++) {
 					for (l = 0; l < RESOURCE_COUNT; l++) {
 						printf("%d\t", simRes[l][k]);
 					} 
 					printf("\n");
 				}
 				
-				
-				
-				int waitingProcesses[numWaiting]; //create temporary array to store our waiting PIDs
+				printf("DLC 3\n");
+				printf("We still believe in %d processes waiting\n", numWaiting);
+				int waitingProcesses[numWaitHold]; //create temporary array to store our waiting PIDs
 				int counter = 0;
+				
 				for (i = 0; i < maxKidsAtATime; i++) { //the exact same loop, but this time we save PIDs. Loop one for each process
+					bool claimed = false;
 					for (j = 0; j < RESOURCE_COUNT; j++) {
-						if (PCT[i].myResource[1][j] > 0) { //if so, we are waiting on this amount of resource j
+						if ((PCT[i].myResource[1][j] > 0) && (claimed == false)) { //if so, we are waiting on this amount of resource j
+							printf("Process %d wants %d of resource %d it seems...\n", PCT[i].myPID, PCT[i].myResource[1][j], j);
+							printf("Saving %d into waitingProcesses[]\n", PCT[i].myPID);
 							waitingProcesses[counter] = PCT[i].myPID;
+							claimed = true; //this seems to solve the overflow problem
 							counter++;
 						}
 					}
 				}
-				
+				printf("DLC 4\n");
+				printf("We still believe in %d processes waiting\n", numWaiting);
 				for (i = 0; i < maxKidsAtATime; i++) { //the exact same loop, but this time we save PIDs. Loop one for each process
 					bool isBlocked = false;
-					for (k = 0; k < numWaiting; k++) { //for each element of k...
+					for (k = 0; k < numWaitHold; k++) { //compare each PID with the PIDs of blocked processes
 						if (waitingProcesses[k] == PCT[i].myPID) {
 							printf("Process %d is blocked\n", PCT[i].myPID);
 							isBlocked = true;
+						} else {
+							//printf("Clearly %d != %d\n", waitingProcesses[k], PCT[i].myPID);
 						}
 					}
 					if (isBlocked == false) {
@@ -497,11 +520,11 @@ int main(int argc, char *argv[]) {
 								//simulate releasing this resource in simRes[j][i]
 								printf("Process %d is not waiting on resource %d, so we simulate releasing all %d of its instances of resource %d\n", PCT[i].myPID, j, PCT[i].myResource[0][j], j); //can't really test this till we have 3 processes...
 								simRes[j][0] += PCT[i].myResource[0][j]; //add the current amount of the resource allocated to resouce available in the simulation
-							}	//PROBLEM!! THIS CAN STILL BE WAITING ON SOMETHING!!!
+							}
 						}
 					}
 				}				
-				
+				printf("DLC 5\n");
 				
 				///////////////
 				//printf("PARENT: Process %d is releasing %d of resource %d\n", message.return_address, message.resAmount, message.resID);
@@ -526,25 +549,86 @@ int main(int argc, char *argv[]) {
 				}*/
 				
 				////////////////
-				
+				printf("DLC 6\n");
 				printf("Lets verify that PCT looks the same:\n");
-				for (i = 0; i < y; i++) {
+				for (i = 0; i < 2; i++) {
 					for (j = 0; j < RESOURCE_COUNT; j++) {
 						printf("%d\t", sm->resource[j][i]);
 					} 
 					printf("\n");
 				}
 				
-				
-				printf("The following are the %d processes that are waiting: ", numWaiting);
-				for (i = 0; i < numWaiting; i++) {
+				printf("DLC 7\n");
+				printf("The following are the %d processes that are waiting: ", numWaitHold);
+				for (i = 0; i < numWaitHold; i++) {
 					printf("%d ", waitingProcesses[i]);
 				}
 				printf("\n");
+				printf("DLC 8\n");
 				
-				//now we look at every other process, and simulate releasing their resources
 				
-
+				//now that all nonblocked processes have simulated releasing their resources, we enter a loop
+				int numStillHold = numWaitHold;
+				int result = 0; //1 means we're fine, 2 means deadlock
+				while (result == 0) {
+					bool change = false;
+					int q;
+					for (q = 0; q < numWaitHold; q++) {
+						//first let's take this PID, PCT[i]
+						for (i = 0; i < maxKidsAtATime; i++) {
+							if (PCT[i].myPID == waitingProcesses[q]) {
+								printf("Looks like %d is still blocked...\n", PCT[i].myPID);
+								
+								//can we satisfy it's needs
+								for (j = 0; j < RESOURCE_COUNT; j++) {
+									if (PCT[i].myResource[1][j] > 0) {
+										printf("%d is waiting on %d of %d...", PCT[i].myPID, PCT[i].myResource[1][j], j);
+										
+										//can we give it to him???
+										if (simRes[j][1] >= PCT[i].myResource[1][j]) {
+											printf("The simulation currently has %d of that, so we can satisfy it's needs!\n", simRes[j][1]);
+											
+											//actually release resources here and do more
+											int j2;
+											for (j2 = 0; j2 < RESOURCE_COUNT; j2++) {
+												if (PCT[i].myResource[1][j2] == 0) {
+													//simulate releasing this resource in simRes[j][i]
+													printf("Process %d is not waiting on resource %d, so we simulate releasing all %d of its instances of resource %d\n", PCT[i].myPID, j, PCT[i].myResource[0][j], j); //can't really test this till we have 3 processes...
+													simRes[j2][0] += PCT[i].myResource[0][j2]; //add the current amount of the resource allocated to resouce available in the simulation
+												}
+											}
+											waitingProcesses[q] = -1; //this shows that the process has escaped the "deadlock" if you will. It'll never match a real PID
+											
+											numStillHold--;
+											change = true;
+										} else {
+											printf("The simulation currently only has %d of that, so we can't satisfy this request\n", simRes[j][1]);
+										}
+										break;
+									}
+									printf("We made it here\n"); 
+								}
+								
+								
+							}
+						}
+					}
+					if (numStillHold == 0) {
+						//we've escaped - there's no deadlock
+						printf("THERE IS NO DEADLOCK!!!\n");
+						result = 1;
+						
+					}else if (change == false) {
+						//we have a deadlock on all remaining processes!!
+						result = 2;
+						printf("WE HAVE A DEADLOCK!!!\n");
+						//kill them and give away their resources.
+						
+						//then properly end program
+					} 
+				}
+				
+				
 				
 				/*printf("Now lets simulate releasing resources of all other processes");
 				
@@ -586,7 +670,7 @@ int main(int argc, char *argv[]) {
 						}
 				*/
 				
-				
+				printf("DLC 9\n");
 				printf("That's as far as this test goes. Did it work\n");
 				kill(-1*getpid(), SIGKILL);	//just for TESTING ONLY!!!
 			}

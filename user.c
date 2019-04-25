@@ -229,10 +229,10 @@ int main(int argc, char *argv[]) {
 		
 		//now we ask ourselves if it is time to terminate or not? We'll start with a 1% chance and see what that gives us
 		
-		if (randomNum(1, 100) == 1) { //set to 21 percent for testing, though originally we though 1% ... DECIDE!!
+		/*if (randomNum(1, 100) == 1) { //set to 21 percent for testing, though originally we though 1% ... DECIDE!!
 			printf("CHILD %d decides it's time to terminate\n", getpid());
 			terminate = 1;
-		}
+		}*/
 
 	}
 		
