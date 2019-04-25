@@ -337,7 +337,7 @@ int main(int argc, char *argv[]) {
 						
 						message.mesg_type = PCT[i].myPID;
 						message.mesg_value = 10; //accept request
-						printf("PARENT: Looks like we can finally give %d it's %d shares of %d\n", PCT[i].myPID, PCT[i].myResource[i][j], j);
+						printf("PARENT: Looks like we can finally give %d it's %d shares of %d$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n", PCT[i].myPID, PCT[i].myResource[i][j], j);
 						
 						
 						for (i = 0; i < maxKidsAtATime; i++) {
@@ -355,7 +355,16 @@ int main(int argc, char *argv[]) {
 							perror("Error on msgsnd\n");
 						}
 						
-						sleep(3);
+						//sleep(3);
+						
+						int k, l;
+						printf("Another printout of our resource board\n"); //THIS WHOLE SECTION IS IN A TESTING PHASE
+						for (k = 0; k < y; k++) {
+							for (l = 0; l < RESOURCE_COUNT; l++) {
+								printf("%d\t", sm->resource[l][k]);
+							}
+							printf("\n");
+						}
 						
 						printf("At present, this is what our PCT looks like:\n");
 						for (p = 0; p < maxKidsAtATime; p++) {
@@ -366,7 +375,7 @@ int main(int argc, char *argv[]) {
 							}
 							printf("\n");
 						}
-						kill(-1*getpid(), SIGKILL);	//just for TESTING ONLY!!!
+						//kill(-1*getpid(), SIGKILL);	//just for TESTING ONLY!!!
 						
 					} else {
 						//printf("But this clearly isn't true, since sm->resource[1][j] equals %d and that is less then PCT[i].myResource[1][j], which is %d\n", sm->resource[1][j], PCT[i].myResource[1][j]);
@@ -405,7 +414,17 @@ int main(int argc, char *argv[]) {
 				for (j = 0; j < RESOURCE_COUNT; j++) {
 					if (PCT[i].myResource[1][j] > 0) { //if so, we are waiting on this amount of resource j
 						//check if this resource is now available...
-						printf("Looks like process %d is waiting for %d of resource %d\n", PCT[i].myPID, PCT[i].myResource[1][j], j);
+						printf("Looks like process %d is waiting for %d of resource %d, but only %d are free right now\n", PCT[i].myPID, PCT[i].myResource[1][j], j, sm->resource[j][1]);
+						printf("FYI, i and j equal %d and %d\n", i, j);
+						int k, l;
+						printf("Another printout of our resource board\n"); //FOR TESTING!!!!!!!!!!!!!
+						for (k = 0; k < y; k++) {
+							for (l = 0; l < RESOURCE_COUNT; l++) {
+								printf("%d\t", sm->resource[l][k]);
+							} 
+							printf("\n");
+						}
+	
 						testingOnly++;
 					}
 				}
