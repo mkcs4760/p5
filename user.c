@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
 		memmove(programName, programName + 2, strlen(programName));
 	}
 
-	srand(time(0)); //placed here so we can generate random numbers later on
+	srand(time(0) * getpid()); //placed here so we can generate random numbers later on
 	
 	printf("CHILD: Child #%d has started\n", getpid());
 	
@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
 	
 	//set up shared memory
 	int shmid;
-	key_t smKey = 1094;
+	key_t smKey = 2094;
     shared_memory *sm; //allows us to request shared memory data
 	if ((shmid = shmget(smKey, sizeof(shared_memory), IPC_CREAT | 0666)) == -1) { //connect to shared memory
         errorMessage(programName, "Function shmget failed. ");
@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
 	
 	//set up message queue
 	int msqid; 
-	key_t mqKey = 2931; 
+	key_t mqKey = 1112; 
     msqid = msgget(mqKey, 0666 | IPC_CREAT);  //msgget creates a message queue and returns identifier 
 	if (msqid < 0) {
 		printf("Error, msqid equals %d\n", msqid);

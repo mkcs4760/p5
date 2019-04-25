@@ -100,7 +100,7 @@ int main(int argc, char *argv[]) {
 	}
 	
 	int shmid;
-	key_t shKey = 1094;
+	key_t shKey = 2094;
     shared_memory *sm; //allows us to request shared memory data
 	//connect to shared memory
 	if ((shmid = shmget(shKey, sizeof(shared_memory), IPC_CREAT | 0666)) == -1) {
@@ -114,7 +114,7 @@ int main(int argc, char *argv[]) {
 	
 	int msqid;
 	key_t mqKey; 
-    mqKey = 2931; 
+    mqKey = 1112; 
     msqid = msgget(mqKey, 0666 | IPC_CREAT);  //create the message queue
 	if (msqid < 0) {
 		printf("Error, msqid equals %d\n", msqid);
@@ -234,6 +234,7 @@ int main(int argc, char *argv[]) {
 							PCT[i].myResource[0][message.resID] += message.resAmount; //we just allocated a resource
 							PCT[i].myResource[1][message.resID] = 0; //we just got some of this resource, so set our desired amount to 0. Quick to just set it then check if it has been set or not
 							sm->resource[message.resID][1] -= message.resAmount; //these parameters may possibly be in the wrong order..........
+							break;
 						}
 					}
 					
@@ -324,25 +325,46 @@ int main(int argc, char *argv[]) {
 			//printf("PARENT: ending process checkpoint 5\n");
 		} //if temp == 0, nothing has ended and we simply carry on
 		
+		
+		
+		
 		//check to see if any processes can be unblocked thanks to more resources
 		for (i = 0; i < maxKidsAtATime; i++) {
 			for (j = 0; j < RESOURCE_COUNT; j++) {
 				if (PCT[i].myResource[1][j] > 0) { //if so, we are waiting on this amount of resource j
 					//check if this resource is now available...
 					//printf("Looks like process %d is waiting for %d of resource %d\n", PCT[i].myPID, PCT[i].myResource[1][j], j);	
-					if (PCT[i].myResource[1][j] <= sm->resource[1][j]) {
+					if (PCT[i].myResource[1][j] <= sm->resource[j][1]) {
 						//we can allocate these resources and release this process
 						//printf("We made it here because PCT[i].myResource[1][j] equals %d, and that is less then sm->resource[1][j], which equals %d\n",PCT[i].myResource[1][j], sm->resource[1][j]);
-						printf("We are here because %d <= %d...\n", PCT[i].myResource[1][j], sm->resource[1][j]);
-						
+						printf("For the record, i:%d  j:%d \n", i, j);
 						message.mesg_type = PCT[i].myPID;
 						message.mesg_value = 10; //accept request
-						printf("PARENT: Looks like we can finally give %d it's %d shares of %d$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n", PCT[i].myPID, PCT[i].myResource[i][j], j);
+						printf("PARENT: Looks like we can finally give %d it's %d shares of %d$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n", PCT[i].myPID, PCT[i].myResource[1][j], j);
+						
+						//we already have the loops above.
+						//Our process is PCT[i].myPID
+						//j is the resource that our process wants
+						//PCT[i].myResource[i][j] is the amount of that resource it wants
+						
+						//this should work...
+						printf("So since we had %d, and we want %d more, we should now have %d\n", PCT[i].myResource[0][j], PCT[i].myResource[i][j], PCT[i].myResource[0][j] + PCT[i].myResource[i][j]);
+						PCT[i].myResource[0][j] += PCT[i].myResource[1][j];
+						PCT[i].myResource[1][j] = 0;
+						printf("But that means that while we used to have %d available, we now only have %d/n", sm->resource[j][1], sm->resource[j][1] - PCT[i].myResource[i][j]);
+						sm->resource[j][1] -= PCT[i].myResource[1][j];
+						
+						message.return_address = getpid();
+						int send = msgsnd(msqid, &message, sizeof(message), 0); //send message
+						if (send == -1) {
+							perror("Error on msgsnd\n");
+						}
 						
 						
-						for (i = 0; i < maxKidsAtATime; i++) {
+						/*for (i = 0; i < maxKidsAtATime; i++) {
 							if (PCT[i].myPID == message.return_address) {
 								//this is the slot we want to allocate resources to
+								printf("Updated PCT table PCT[%d].myResources[0][%d] from %d to %d\n", i, message.resID, PCT[i].myResource[0][message.resID], PCT[i].myResource[0][message.resID] + message.resAmount);
 								PCT[i].myResource[0][message.resID] += message.resAmount; //we just allocated a resource
 								PCT[i].myResource[1][message.resID] = 0; //we just got some of this resource, so set our desired amount to 0. Quick to just set it then check if it has been set or not
 								sm->resource[message.resID][1] -= message.resAmount; //these parameters may possibly be in the wrong order..........
@@ -353,7 +375,7 @@ int main(int argc, char *argv[]) {
 						int send = msgsnd(msqid, &message, sizeof(message), 0); //send message
 						if (send == -1) {
 							perror("Error on msgsnd\n");
-						}
+						}*/
 						
 						//sleep(3);
 						
@@ -375,7 +397,7 @@ int main(int argc, char *argv[]) {
 							}
 							printf("\n");
 						}
-						//kill(-1*getpid(), SIGKILL);	//just for TESTING ONLY!!!
+						kill(-1*getpid(), SIGKILL);	//just for TESTING ONLY!!!
 						
 					} else {
 						//printf("But this clearly isn't true, since sm->resource[1][j] equals %d and that is less then PCT[i].myResource[1][j], which is %d\n", sm->resource[1][j], PCT[i].myResource[1][j]);
