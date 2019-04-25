@@ -348,7 +348,7 @@ int main(int argc, char *argv[]) {
 						//PCT[i].myResource[i][j] is the amount of that resource it wants
 						
 						//this should work...
-						printf("So since we had %d, and we want %d more, we should now have %d\n", PCT[i].myResource[0][j], PCT[i].myResource[i][j], PCT[i].myResource[0][j] + PCT[i].myResource[i][j]);
+						printf("So since we had %d, and we want %d more, we should now have %d\n", PCT[i].myResource[0][j], PCT[i].myResource[1][j], PCT[i].myResource[0][j] + PCT[i].myResource[1][j]);
 						PCT[i].myResource[0][j] += PCT[i].myResource[1][j];
 						PCT[i].myResource[1][j] = 0;
 						printf("But that means that while we used to have %d available, we now only have %d/n", sm->resource[j][1], sm->resource[j][1] - PCT[i].myResource[i][j]);
@@ -397,7 +397,7 @@ int main(int argc, char *argv[]) {
 							}
 							printf("\n");
 						}
-						kill(-1*getpid(), SIGKILL);	//just for TESTING ONLY!!!
+						//kill(-1*getpid(), SIGKILL);	//just for TESTING ONLY!!!
 						
 					} else {
 						//printf("But this clearly isn't true, since sm->resource[1][j] equals %d and that is less then PCT[i].myResource[1][j], which is %d\n", sm->resource[1][j], PCT[i].myResource[1][j]);
@@ -420,6 +420,8 @@ int main(int argc, char *argv[]) {
 			//began algorithm
 			printf("\tDEADLOCK DETECTION ALGORITHM ...\n");
 			
+			
+			
 			printf("At present, this is what our PCT looks like:\n");
 			for (p = 0; p < maxKidsAtATime; p++) {
 				printf("PARENT: Slot #%d, containing PID %d: \n", p, PCT[p].myPID);
@@ -431,11 +433,10 @@ int main(int argc, char *argv[]) {
 			}
 			
 			//I suppose a first step would be to detect here if anyone was waiting for anything in particular
-			int testingOnly = 0;
+			int numWaiting = 0;
 			for (i = 0; i < maxKidsAtATime; i++) {
 				for (j = 0; j < RESOURCE_COUNT; j++) {
 					if (PCT[i].myResource[1][j] > 0) { //if so, we are waiting on this amount of resource j
-						//check if this resource is now available...
 						printf("Looks like process %d is waiting for %d of resource %d, but only %d are free right now\n", PCT[i].myPID, PCT[i].myResource[1][j], j, sm->resource[j][1]);
 						printf("FYI, i and j equal %d and %d\n", i, j);
 						int k, l;
@@ -447,16 +448,89 @@ int main(int argc, char *argv[]) {
 							printf("\n");
 						}
 	
-						testingOnly++;
+						numWaiting++;
 					}
 				}
 			}
-			
-			//the above appears to work in the sense that it'll tell me what is waiting for what, though right now, it just prints it...
-			if (testingOnly >= maxKidsAtATime) {
-				printf("All our processes are waiting. Ending program\n");
+			if (numWaiting > 1) {//one process cannot deadlock itself. We must have at least 2
+				int waitingProcesses[numWaiting]; //create temporary array to store our waiting PIDs
+				int counter = 0;
+				for (i = 0; i < maxKidsAtATime; i++) { //the exact same loop, but this time we save PIDs
+					for (j = 0; j < RESOURCE_COUNT; j++) {
+						if (PCT[i].myResource[1][j] > 0) { //if so, we are waiting on this amount of resource j
+							waitingProcesses[counter] = PCT[i].myPID;
+							counter++;
+						}
+					}
+				}
+				
+				printf("The following are the %d processes that are waiting: ", numWaiting);
+				for (i = 0; i < numWaiting; i++) {
+					printf("%d ", waitingProcesses[i]);
+				}
+				printf("\n");
+				
+				//now we look at every other process, and simulate releasing their resources
+				
+				int simRes[3][20];
+				
+				for (i = 0; i < y; i++) {
+					for (j = 0; j < RESOURCE_COUNT; j++) {
+						simRes[j][i] = sm->resource[j][i];
+					}	
+				}
+				int k, l;
+				printf("Here is our simulated resource board\n"); //FOR TESTING!!! appears to be copied successfully
+				for (k = 0; k < y; k++) {
+					for (l = 0; l < RESOURCE_COUNT; l++) {
+						printf("%d\t", simRes[l][k]);
+					} 
+					printf("\n");
+				}
+						
+				/*		
+						
+						if (i == 0) {
+							sm->resource[j][i] = randomNum(1, 10); //set the maximum number of this resource available to the system. These numbers do not change
+						} else if ( i == 1) {
+							sm->resource[j][i] = sm->resource[j][0]; //set the current number of available instances of this resource. This number does change
+						} else {
+							if (randomNum(1, 10) < 3) {
+								sm->resource[j][i] = 1; //mark this resource as a sharable resource
+							} else {
+								sm->resource[j][i] = 0; //mark this resource as a nonsharable resource
+							}
+						}
+					}
+				}				
+				*/
+				
+				/*
+				
+						PCT[i].myResource[0][message.resID] -= message.resAmount; //we just deallocated a resource
+						sm->resource[message.resID][1] += message.resAmount; //just moved resources from allocation in PCT to free in resource table
+
+						message.mesg_type = message.return_address;
+						message.return_address = getpid();
+						int send = msgsnd(msqid, &message, sizeof(message), 0); //send message
+						if (send == -1) {
+							perror("Error on msgsnd\n");
+						}
+				*/
+				
+				
+				printf("That's as far as this test goes. Did it work\n");
 				kill(-1*getpid(), SIGKILL);	//just for TESTING ONLY!!!
 			}
+			
+
+			
+			
+			//the above appears to work in the sense that it'll tell me what is waiting for what, though right now, it just prints it...
+			/*if (numWaiting >= maxKidsAtATime) {
+				printf("All our processes are waiting. Ending program\n");
+				kill(-1*getpid(), SIGKILL);	//just for TESTING ONLY!!!
+			}*/
 			
 			
 			
