@@ -80,6 +80,37 @@ int main(int argc, char *argv[]) {
 	
 	int i, j;
 	int maxKidsAtATime = 2; //for now, this is our test value. This will eventually be up to 18, depending on command line arguments
+	int verbose = 0;
+	
+	
+	//let's process the getopt arguments
+	int option;
+	while ((option = getopt(argc, argv, "hvs:")) != -1) {
+		switch (option) {
+			case 'h' :	printf("Help page for OS_Klein_project5\n"); //for h, we print helpful information about arguments to the screen
+						printf("Consists of the following:\n\tTwo .c files titled oss.c and user.c\n\tTwo .h files titled messageQueue.h and sharedMemory.h\n\tOne Makefile\n\tOne README file\n\tOne version control log.\n");
+						printf("The command 'make' will run the makefile and compile the program\n");
+						printf("Command line arguments for master executable:\n");
+						printf("\t-s\t<maxChildrenAtATime>\tdefaults to 2. Larger values have not been tested\n");
+						printf("\t-v\t<NoArgument>\tInforms program to use full verbose logging. Defaults to not\n");
+						printf("\t-h\t<NoArgument>\n");
+						printf("Version control acomplished using github. Log obtained using command 'git log > versionLog.txt'\n");
+						printf("Please note that this project was not completed. Please see README file for more details\n");
+						exit(0);
+						break;
+			case 's' :	if (atoi(optarg) <= 19) { //for s, we set the maximum of child processes we will have at a time
+							maxKidsAtATime = atoi(optarg);
+						} else {
+							errno = 22;
+							errorMessage(programName, "Cannot allow more then 19 process at a time. "); //the parent is running, so there's already 1 process running
+						}
+						break;
+			case 'v' :  verbose = 1;
+						break;
+			default :	errno = 22; //anything else is an invalid argument
+						errorMessage(programName, "You entered an invalid argument. ");
+		}
+	}	
 	
 	//we need our process control table
 	struct PCB PCT[maxKidsAtATime]; //here we have a table of maxNum process blocks
@@ -154,6 +185,17 @@ int main(int argc, char *argv[]) {
 	int processesLaunched = 0;
 	int processesRunning = 0;
 	int durationNano, startSeconds, startNano, stopSeconds, stopNano;
+	
+	FILE * output;
+	if (verbose == 1) {
+		output = fopen("verboseLog.txt", "w");
+	} else {
+		output = fopen("log.txt", "w");
+	}
+	fprintf(output, "Deadlock Detection Simulation\n\n");
+	printf("Running deadlock detection simulation\n");
+	printf("Please note that this may take several seconds...\n");
+	
 	
 	while (terminate != 1) {
 		//printf("Start of while loop\n");
@@ -581,6 +623,9 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	fprintf(output, "\nEnd of log\n");
+	
+	fclose(output);
 	
 	//clean up resources
 	int mqDestroy = msgctl(msqid, IPC_RMID, NULL); //destroy message queue
