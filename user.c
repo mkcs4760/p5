@@ -47,9 +47,7 @@ int main(int argc, char *argv[]) {
 
 	srand(time(0) * getpid()); //placed here so we can generate random numbers later on
 	
-	printf("CHILD: Child #%d has started\n", getpid());
-	
-	//int maxKidsAtATime = 1; //this is only hear for testing. Eventually this will be replaced with a CONSTENT
+	//printf("CHILD: Child #%d has started\n", getpid());
 	
 	//set up shared memory
 	int shmid;
@@ -138,7 +136,6 @@ int main(int argc, char *argv[]) {
 				}
 				//printf("CHILD: That resource is resource #%d\n", ourPick);
 				//printf("CHILD: I currently have %d of resource #%d, and the total amount of that resource is %d\n", myResources[ourPick], ourPick, sm->resource[ourPick][0]);
-				//printf("test ends here...\n");
 				int giveAway = randomNum(1, myResources[ourPick]);
 				//printf("CHILD: I (%d) want to give away %d of resource %d\n", getpid(), giveAway, ourPick);
 				
@@ -159,11 +156,8 @@ int main(int argc, char *argv[]) {
 					perror("No message received\n");
 				}
 				//printf("Data Received is: %d \n", message.mesg_test);
-				
-				//unless I'm missing something, there is no situation where we would not release a resource unless the process doesn't really have it
-				//but in that case, there's an unsolveable error already, and we would terminate anyway
-				
-				//printf("CHILD: We released our resource1 Yay!\n");
+
+				//printf("CHILD: We released our resource Yay!\n");
 				//release it on the child end now
 				myResources[ourPick] -= giveAway;
 				//printf("CHILD: We are left with %d of resource #%d\n", myResources[ourPick], ourPick);
@@ -180,11 +174,9 @@ int main(int argc, char *argv[]) {
 				//now we randomly pick the resource that it'll request
 				int res = randomNum(0, 19);
 				if (myResources[res] < sm->resource[res][0]) { //if we have less then all of this resource...
-					//printf("CHILD check 4\n");
 					validChoice = true;
 					//pick a random value from 1-n where n is the literal max it can request before it requested more then could possibly exist
 					int iWant = randomNum(1, sm->resource[res][0] - myResources[res]);
-					//printf("CHILD check 4.5\n");
 					bool complete = false;
 					while (complete == false) { //until I get the resources I want
 
@@ -210,7 +202,6 @@ int main(int argc, char *argv[]) {
 						//printf("CHILD: Data Received is : %s \n", message.mesg_text); 
 						if (message.mesg_value == 10) { //PLACEHOLDER VALUE FOR EARLY TESTING
 							complete = true;
-							//printf("CHILD check 6\n");
 							//printf("CHILD: Process %d got %d more of resource %d\n", getpid(), iWant, res);
 							myResources[res] += iWant;
 
@@ -230,18 +221,18 @@ int main(int argc, char *argv[]) {
 		//now we ask ourselves if it is time to terminate or not? We'll start with a 1% chance and see what that gives us
 		
 		if (randomNum(1, 100) == 1) { //set to 21 percent for testing, though originally we though 1% ... DECIDE!!
-			printf("CHILD %d decides it's time to terminate\n", getpid());
+			//printf("CHILD %d decides it's time to terminate\n", getpid());
 			terminate = 1;
 		}
 
 	}
 		
-	printf("This was ending allocation for process %d\n", getpid());
+	/*printf("This was ending allocation for process %d\n", getpid());
 	for (i = 0; i < RESOURCE_COUNT; i++) {
 		printf("%d ", myResources[i]);
 	}
-	printf("\n");	
+	printf("\n");*/	
 	
-	printf("CHILD: Ending child %d at %d:%d\n", getpid(), sm->clockSecs, sm->clockNano);
+	//printf("CHILD: Ending child %d at %d:%d\n", getpid(), sm->clockSecs, sm->clockNano);
 	return 0;
 }
